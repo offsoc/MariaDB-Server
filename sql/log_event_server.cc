@@ -6159,7 +6159,12 @@ int Rows_log_event::do_apply_event(rpl_group_info *rgi)
     bitmap_set_all(table->read_set);
     if (get_general_type_code() == DELETE_ROWS_EVENT ||
         get_general_type_code() == UPDATE_ROWS_EVENT)
+    {
       bitmap_intersect(table->read_set,&m_cols);
+      table->mark_columns_per_binlog_row_image();
+      if (table->vfield)
+        table->mark_virtual_columns_for_write(0);
+    }
 
     bitmap_set_all(table->write_set);
     table->rpl_write_set= table->write_set;
@@ -8452,12 +8457,6 @@ int Rows_log_event::find_row(rpl_group_info *rgi)
 
   // We can't use position() - try other methods.
   
-  /* 
-    We need to retrieve all fields
-    TODO: Move this out from this function to main loop 
-   */
-  table->use_all_columns();
-
   /*
     Save copy of the record in table->record[1]. It might be needed 
     later if linear search is used to find exact match.
@@ -8771,7 +8770,6 @@ int Delete_rows_log_event::do_exec_row(rpl_group_info *rgi)
       error= HA_ERR_GENERIC; // in case if error is not set yet
     if (likely(!error))
     {
-      m_table->mark_columns_per_binlog_row_image();
       if (m_vers_from_plain && m_table->versioned(VERS_TIMESTAMP))
       {
         Field *end= m_table->vers_end_field();
