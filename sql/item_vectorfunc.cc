@@ -174,10 +174,21 @@ Item_func_vec_totext::Item_func_vec_totext(THD *thd, Item *a)
 Item_func_vec_fromtext::Item_func_vec_fromtext(THD *thd, Item *a)
     : Item_str_func(thd, a)
 {
+  mem_root_inited= false;
 }
 
 bool Item_func_vec_fromtext::fix_length_and_dec(THD *thd)
 {
+
+  if (!mem_root_inited)
+    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
+                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
+  mem_root_inited= true;
+
+  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &je.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, 0, MYF(0));
+
   decimals= 0;
   /* Worst case scenario, for a valid input we have a string of the form:
      [1,2,3,4,5,...] single digit numbers.
@@ -190,7 +201,6 @@ bool Item_func_vec_fromtext::fix_length_and_dec(THD *thd)
 
 String *Item_func_vec_fromtext::val_str(String *buf)
 {
-  json_engine_t je;
   bool end_ok= false;
   String *value = args[0]->val_json(&tmp_js);
 

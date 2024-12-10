@@ -2180,6 +2180,15 @@ enum json_types json_get_object_nkey(const char *js __attribute__((unused)),
 {
   json_engine_t je;
   int keys_found= 0;
+  MEM_ROOT current_mem_root;
+  enum json_types return_value;
+
+  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
+                  BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
+
+  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &je.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, 0, MYF(0));
 
   json_scan_start(&je, &my_charset_utf8mb4_bin,(const uchar *) js,
                   (const uchar *) js_end);
@@ -2199,7 +2208,9 @@ enum json_types json_get_object_nkey(const char *js __attribute__((unused)),
         while (json_read_keyname_chr(&je) == 0)
           *keyname_end= (char *) je.s.c_str;
 
-        return smart_read_value(&je, value, value_len);
+        return_value= smart_read_value(&je, value, value_len);
+        free_root(&current_mem_root, MYF(0));
+        return return_value;
       }
 
       keys_found++;
@@ -2209,11 +2220,13 @@ enum json_types json_get_object_nkey(const char *js __attribute__((unused)),
       break;
 
     case JST_OBJ_END:
+      free_root(&current_mem_root, MYF(0));
       return JSV_NOTHING;
     }
   }
 
 err_return:
+  free_root(&current_mem_root, MYF(0));
   return JSV_BAD_JSON;
 }
 
