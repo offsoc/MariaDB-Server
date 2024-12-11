@@ -9,6 +9,7 @@ extern "C" {
 
 #define JSON_DEPTH_DEFAULT 32
 #define JSON_DEPTH_LIMIT JSON_DEPTH_DEFAULT /* Still used in column store. */
+#define JSON_DEPTH_INC JSON_DEPTH_DEFAULT*100
 /*
  Because this array will store approximate two arrays of
  type json_path_step_t and one or two integer arrays,
@@ -450,14 +451,16 @@ int json_path_compare(const json_path_t *a, const json_path_t *b,
 int json_valid(const char *js, size_t js_len,
                CHARSET_INFO *cs, json_engine_t *je);
 
-int json_locate_key(const char *js, const char *js_end,
+int json_locate_key(json_engine_t *je, const char *js, const char *js_end,
                     const char *kname,
                     const char **key_start, const char **key_end,
                     int *comma_pos);
 
 int json_normalize(DYNAMIC_STRING *result,
                    const char *s, size_t size, CHARSET_INFO *cs,
-                   MEM_ROOT *current_mem_root);
+                   MEM_ROOT *current_mem_root,
+                   json_engine_t *temp_je,
+                   MEM_ROOT_DYNAMIC_ARRAY *stack);
 
 int json_skip_array_and_count(json_engine_t *j, int* n_item);
 

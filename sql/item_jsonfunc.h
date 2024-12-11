@@ -134,9 +134,10 @@ public:
 
 class Item_func_json_equals: public Item_bool_func
 {
-json_engine_t je1, je2;
+json_engine_t je1, je2, temp_je;
 MEM_ROOT current_mem_root;
 bool mem_root_inited;
+MEM_ROOT_DYNAMIC_ARRAY stack;
 
 public:
   Item_func_json_equals(THD *thd, Item *a, Item *b):
@@ -613,9 +614,10 @@ public:
 
 class Item_func_json_normalize: public Item_json_func
 {
-json_engine_t je;
+json_engine_t je, temp_je;
 MEM_ROOT current_mem_root;
 bool mem_root_inited;
+MEM_ROOT_DYNAMIC_ARRAY stack;
 
 public:
   Item_func_json_normalize(THD *thd, Item *a):
@@ -1050,9 +1052,10 @@ class Item_func_json_overlaps: public Item_bool_func
   String tmp_js;
   bool a2_constant, a2_parsed;
   String tmp_val, *val;
-  json_engine_t je, ve;
+  json_engine_t je, ve, temp_je;
   MEM_ROOT current_mem_root;
   bool mem_root_inited;
+  MEM_ROOT_DYNAMIC_ARRAY stack;
 
 public:
   Item_func_json_overlaps(THD *thd, Item *a, Item *b):
@@ -1150,9 +1153,10 @@ protected:
   HASH items;
   MEM_ROOT hash_root;
   bool parse_for_each_row;
-  json_engine_t je1, je2, res_je;
+  json_engine_t je1, je2, res_je, temp_je;
   MEM_ROOT current_mem_root;
   bool mem_root_inited;
+  MEM_ROOT_DYNAMIC_ARRAY stack;
 
 public:
   Item_func_json_array_intersect(THD *thd, Item *a, Item *b):
@@ -1191,9 +1195,10 @@ protected:
   bool hash_inited, hash_root_inited;
   HASH items;
   MEM_ROOT hash_root;
-  json_engine_t je1, je_res, temp_je;
+  json_engine_t je1, je_res, temp_je, temp_je2;
   MEM_ROOT current_mem_root;
   bool mem_root_inited;
+  MEM_ROOT_DYNAMIC_ARRAY stack;
 
 public:
   Item_func_json_object_filter_keys(THD *thd, Item *a, Item *b):

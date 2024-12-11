@@ -424,16 +424,12 @@ bool Json_schema_const::validate(const json_engine_t *je,
   const char *start= (char*)curr_je.value;
   const char *end= (char*)curr_je.value+curr_je.value_len;
   json_engine_t temp_je= *je;
-  json_engine_t temp_je_2;
   String a_res("", 0, curr_je.s.cs);
   int err= 0;
 
   if (type != curr_je.value_type)
    return true;
 
-mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
-                          &temp_je_2.stack, sizeof(int), NULL,
-                          JSON_DEPTH_DEFAULT, 0, MYF(0));
   if (curr_je.value_type <= JSON_VALUE_NUMBER)
   {
     if (!json_value_scalar(&temp_je))
@@ -457,7 +453,7 @@ mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
         curr_je= temp_je;
         return true;
       }
-      json_get_normalized_string(&temp_je_2, &a_res, &err, current_mem_root);
+      json_get_normalized_string(&temp_je_2, &a_res, &err, current_mem_root, &temp_je_arg, &stack);
       if (err)
       {
         return true;
@@ -495,6 +491,15 @@ bool Json_schema_const::handle_keyword(THD *thd,
                                 &temp_je.stack,
                                  sizeof(int), NULL,
                                  32, 32, MYF(0));
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &temp_je_arg.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &stack, sizeof(struct json_norm_value*), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &temp_je_2.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
   type= je->value_type;
 
@@ -515,7 +520,7 @@ bool Json_schema_const::handle_keyword(THD *thd,
     {
       return true;
     }
-    json_get_normalized_string(&temp_je, &a_res, &err, current_mem_root);
+    json_get_normalized_string(&temp_je, &a_res, &err, current_mem_root, &temp_je_arg, &stack);
     if (err)
     {
       return true;
@@ -557,7 +562,7 @@ bool Json_schema_enum::validate(const json_engine_t *je,
     else
       return false;
   }
-  json_get_normalized_string(&temp_je, &a_res, &err, current_mem_root);
+  json_get_normalized_string(&temp_je, &a_res, &err, current_mem_root, &temp_je_arg, &stack);
   if (err)
     return true;
 
@@ -578,6 +583,14 @@ bool Json_schema_enum::handle_keyword(THD *thd, MEM_ROOT *current_mem_root,
                                            *all_keywords)
 {
   int count= 0;
+
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &temp_je_arg.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &stack, sizeof(struct json_norm_value*), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
+
   if (my_hash_init(PSI_INSTRUMENT_ME,
                    &this->enum_values,
                    je->s.cs, 1024, 0, 0, get_key_name,
@@ -608,7 +621,7 @@ bool Json_schema_enum::handle_keyword(THD *thd, MEM_ROOT *current_mem_root,
         int err= 1;
         String a_res("", 0, je->s.cs);
 
-        json_get_normalized_string(je, &a_res, &err, current_mem_root);
+        json_get_normalized_string(je, &a_res, &err, current_mem_root, &temp_je_arg, &stack);
         if (err)
           return true;
 
@@ -1355,7 +1368,7 @@ bool Json_schema_prefix_items::handle_keyword(THD *thd,
 
   mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
   while(json_scan_next(je)==0 && je->stack_p >= level)
   {
@@ -1430,7 +1443,7 @@ bool Json_schema_unique_items::validate(const json_engine_t *je,
     if (json_read_value(&curr_je))
       goto end;
 
-    json_get_normalized_string(&curr_je, &a_res, &err, current_mem_root);
+    json_get_normalized_string(&curr_je, &a_res, &err, current_mem_root, &temp_je_arg, &stack);
 
     if (err)
       goto end;
@@ -1486,6 +1499,13 @@ bool Json_schema_unique_items::handle_keyword(THD *thd,
                                               List<Json_schema_keyword>
                                                   *all_keywords)
 {
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &temp_je_arg.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
+  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &stack, sizeof(struct json_norm_value*), NULL,
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
+
   if (je->value_type == JSON_VALUE_TRUE)
     is_unique= true;
   else if (je->value_type == JSON_VALUE_FALSE)
@@ -2446,7 +2466,7 @@ bool Json_schema_logic::handle_keyword(THD *thd,
 
   mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
   if (je->value_type != JSON_VALUE_ARRAY)
   {

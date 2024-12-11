@@ -759,7 +759,7 @@ bool Histogram_json_hb::parse(MEM_ROOT *mem_root, const char *db_name,
 
   mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
+                              JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
   json_scan_start(&je, &my_charset_utf8mb4_bin,
                   (const uchar*)hist_data,

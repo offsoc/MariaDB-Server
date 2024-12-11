@@ -170,6 +170,8 @@ class Json_schema_const : public Json_schema_keyword
 {
   private:
     char *const_json_value;
+    json_engine_t temp_je_arg, temp_je_2;
+    MEM_ROOT_DYNAMIC_ARRAY stack;
 
   public:
     enum json_value_types type;
@@ -193,6 +195,8 @@ class Json_schema_enum : public  Json_schema_keyword
   private:
     HASH enum_values;
     uint enum_scalar;
+    json_engine_t temp_je_arg;
+    MEM_ROOT_DYNAMIC_ARRAY stack;
 
   public:
     bool validate(const json_engine_t *je, MEM_ROOT *current_mem_root,
@@ -407,6 +411,8 @@ class Json_schema_unique_items : public Json_schema_keyword
 {
   private:
     bool is_unique;
+    json_engine_t temp_je_arg;
+    MEM_ROOT_DYNAMIC_ARRAY stack;
 
   public:
     bool validate(const json_engine_t *je, MEM_ROOT *current_mem_root,
