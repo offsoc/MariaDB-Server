@@ -1807,7 +1807,7 @@ class User_table_json: public User_table
     mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
                                 &temp_je.stack,
                                 sizeof(int), NULL,
-                                JSON_DEPTH_DEFAULT, 0, MYF(0));
+                                JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
     String str, *res= m_table->field[2]->val_str(&str);
     if (!res || !res->length())

@@ -2015,79 +2015,95 @@ err_return:
 }
 
 
+enum json_types json_type_int(json_engine_t  *tmp,
+                              const char *js, const char *js_end,
+                              const char **value, int *value_len)
+{
+  enum json_types return_value;
+
+  json_scan_start(tmp, &my_charset_utf8mb4_bin,(const uchar *) js,
+                  (const uchar *) js_end);
+  return_value= smart_read_value(tmp, value, value_len);
+
+  return return_value;
+}
+
 enum json_types json_type(const char *js, const char *js_end,
                           const char **value, int *value_len)
 {
   json_engine_t je;
-  MEM_ROOT current_mem_root;
   enum json_types return_value;
+  MEM_ROOT current_mem_root;
 
   init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
                   BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
+
   mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, 0, MYF(0));
-
-  json_scan_start(&je, &my_charset_utf8mb4_bin,(const uchar *) js,
-                  (const uchar *) js_end);
-  return_value= smart_read_value(&je, value, value_len);
+  return_value= json_type_int(&je, js, js_end, value, value_len);
 
   free_root(&current_mem_root, MYF(0));
+
   return return_value;
 }
 
-
-enum json_types json_get_array_item(const char *js, const char *js_end,
-                                    int n_item,
-                                    const char **value, int *value_len)
+enum json_types json_get_array_item_int(json_engine_t *je, const char *js,
+                                        const char *js_end, int n_item,
+                                        const char **value, int *value_len)
 {
-  json_engine_t je;
   int c_item= 0;
-  MEM_ROOT current_mem_root;
-  enum json_types return_value;
 
-  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                  BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
-                              &je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
-
-  json_scan_start(&je, &my_charset_utf8mb4_bin,(const uchar *) js,
+  json_scan_start(je, &my_charset_utf8mb4_bin,(const uchar *) js,
                   (const uchar *) js_end);
 
-  if (json_read_value(&je) ||
-      je.value_type != JSON_VALUE_ARRAY)
+  if (json_read_value(je) ||
+      je->value_type != JSON_VALUE_ARRAY)
     goto err_return;
 
-  while (!json_scan_next(&je))
+  while (!json_scan_next(je))
   {
-    switch (je.state)
+    switch (je->state)
     {
     case JST_VALUE:
       if (c_item == n_item)
-      {
-        return_value= smart_read_value(&je, value, value_len);
-        free_root(&current_mem_root, MYF(0));
-        return return_value;
-      }
-      if (json_skip_key(&je))
+        return smart_read_value(je, value, value_len);
+
+      if (json_skip_key(je))
         goto err_return;
 
       c_item++;
       break;
 
     case JST_ARRAY_END:
-      *value= (const char *) (je.s.c_str - je.sav_c_len);
+      *value= (const char *) (je->s.c_str - je->sav_c_len);
       *value_len= c_item;
-      free_root(&current_mem_root, MYF(0));
       return JSV_NOTHING;
     }
   }
 
 err_return:
-  free_root(&current_mem_root, MYF(0));
   return JSV_BAD_JSON;
+}
+
+enum json_types json_get_array_item(const char *js, const char *js_end, int n_item,
+                                    const char **value, int *value_len)
+{
+  json_engine_t je;
+  enum json_types return_value;
+  MEM_ROOT current_mem_root;
+
+  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
+                  BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
+
+  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+                              &je.stack, sizeof(int), NULL,
+                              JSON_DEPTH_DEFAULT, 0, MYF(0));
+  return_value= json_get_array_item_int(&je, js, js_end, n_item, value, value_len);
+
+  free_root(&current_mem_root, MYF(0));
+
+  return return_value;
 }
 
 
@@ -2109,16 +2125,57 @@ err_return:
                          or not JSON object.
   @retval JSV_NOTHING - no such key found.
 */
-enum json_types json_get_object_key(const char *js, const char *js_end,
-                                    const char *key,
-                                    const char **value, int *value_len)
+enum json_types json_get_object_key_int(json_engine_t *je, const char *js,
+                                        const char *js_end, const char *key,
+                                        const char **value, int *value_len)
 {
-  const char *key_end= key + strlen(key);
-  json_engine_t je;
+ const char *key_end= key + strlen(key);
   json_string_t key_name;
   int n_keys= 0;
-  MEM_ROOT current_mem_root;
+
+  json_string_set_cs(&key_name, &my_charset_utf8mb4_bin);
+
+  json_scan_start(je, &my_charset_utf8mb4_bin,(const uchar *) js,
+                  (const uchar *) js_end);
+
+  if (json_read_value(je) ||
+      je->value_type != JSON_VALUE_OBJECT)
+    goto err_return;
+
+  while (!json_scan_next(je))
+  {
+    switch (je->state)
+    {
+    case JST_KEY:
+      n_keys++;
+      json_string_set_str(&key_name, (const uchar *) key,
+                          (const uchar *) key_end);
+      if (json_key_matches(je, &key_name))
+        return smart_read_value(je, value, value_len);
+
+      if (json_skip_key(je))
+        goto err_return;
+
+      break;
+
+    case JST_OBJ_END:
+      *value= (const char *) (je->s.c_str - je->sav_c_len);
+      *value_len= n_keys;
+      return JSV_NOTHING;
+    }
+  }
+
+err_return:
+  return JSV_BAD_JSON;
+}
+
+enum json_types json_get_object_key(const char *js, const char *js_end,
+                                    const char *key, const char **value,
+                                    int *value_len)
+{
+  json_engine_t je;
   enum json_types return_value;
+  MEM_ROOT current_mem_root;
 
   init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
                   BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
@@ -2126,47 +2183,12 @@ enum json_types json_get_object_key(const char *js, const char *js_end,
   mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, 0, MYF(0));
+  return_value= json_get_object_key_int(&je, js, js_end, key, value, value_len);
 
-  json_string_set_cs(&key_name, &my_charset_utf8mb4_bin);
-
-  json_scan_start(&je, &my_charset_utf8mb4_bin,(const uchar *) js,
-                  (const uchar *) js_end);
-
-  if (json_read_value(&je) ||
-      je.value_type != JSON_VALUE_OBJECT)
-    goto err_return;
-
-  while (!json_scan_next(&je))
-  {
-    switch (je.state)
-    {
-    case JST_KEY:
-      n_keys++;
-      json_string_set_str(&key_name, (const uchar *) key,
-                          (const uchar *) key_end);
-      if (json_key_matches(&je, &key_name))
-      {
-        return_value= smart_read_value(&je, value, value_len);
-        free_root(&current_mem_root, MYF(0));
-        return return_value;
-      }
-
-      if (json_skip_key(&je))
-        goto err_return;
-
-      break;
-
-    case JST_OBJ_END:
-      *value= (const char *) (je.s.c_str - je.sav_c_len);
-      *value_len= n_keys;
-      free_root(&current_mem_root, MYF(0));
-      return JSV_NOTHING;
-    }
-  }
-
-err_return:
   free_root(&current_mem_root, MYF(0));
-  return JSV_BAD_JSON;
+
+  return return_value;
+
 }
 
 
@@ -2210,55 +2232,46 @@ int json_valid(const char *js, size_t js_len, CHARSET_INFO *cs, json_engine_t *j
  
   if no such key found *key_start is set to NULL.
 */
-int json_locate_key(const char *js, const char *js_end,
+int json_locate_key(json_engine_t *je, const char *js, const char *js_end,
                     const char *kname,
                     const char **key_start, const char **key_end,
                     int *comma_pos)
 {
   const char *kname_end= kname + strlen(kname);
-  json_engine_t je;
   json_string_t key_name;
   int t_next, c_len, match_result;
-  MEM_ROOT current_mem_root;
 
-  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                  BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
-                              &je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
   json_string_set_cs(&key_name, &my_charset_utf8mb4_bin);
 
-  json_scan_start(&je, &my_charset_utf8mb4_bin,(const uchar *) js,
+  json_scan_start(je, &my_charset_utf8mb4_bin,(const uchar *) js,
                   (const uchar *) js_end);
 
-  if (json_read_value(&je) ||
-      je.value_type != JSON_VALUE_OBJECT)
+  if (json_read_value(je) ||
+      je->value_type != JSON_VALUE_OBJECT)
     goto err_return;
 
-  *key_start= (const char *) je.s.c_str;
+  *key_start= (const char *) je->s.c_str;
   *comma_pos= 0;
 
-  while (!json_scan_next(&je))
+  while (!json_scan_next(je))
   {
-    switch (je.state)
+    switch (je->state)
     {
     case JST_KEY:
       json_string_set_str(&key_name, (const uchar *) kname,
                           (const uchar *) kname_end);
-      match_result= json_key_matches(&je, &key_name);
-      if (json_skip_key(&je))
+      match_result= json_key_matches(je, &key_name);
+      if (json_skip_key(je))
         goto err_return;
-      get_first_nonspace(&je.s, &t_next, &c_len);
-      je.s.c_str-= c_len;
+      get_first_nonspace(&je->s, &t_next, &c_len);
+      je->s.c_str-= c_len;
 
       if (match_result)
       {
-        *key_end= (const char *) je.s.c_str;
+        *key_end= (const char *) je->s.c_str;
 
         if (*comma_pos == 1)
         {
-          free_root(&current_mem_root, MYF(0));
           return 0;
         }
 
@@ -2273,23 +2286,20 @@ int json_locate_key(const char *js, const char *js_end,
           *comma_pos= 0;
         else
           goto err_return;
-        free_root(&current_mem_root, MYF(0));
         return 0;
       }
 
-      *key_start= (const char *) je.s.c_str;
+      *key_start= (const char *) je->s.c_str;
       *comma_pos= 1;
       break;
 
     case JST_OBJ_END:
       *key_start= NULL;
-       free_root(&current_mem_root, MYF(0));
        return 0;
     }
   }
 
 err_return:
-  free_root(&current_mem_root, MYF(0));
   return 1;
 
 }

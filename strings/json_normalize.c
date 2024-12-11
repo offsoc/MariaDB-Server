@@ -646,21 +646,15 @@ json_norm_append_to_object(struct json_norm_value *val,
 
 
 static int
-json_norm_parse(struct json_norm_value *root, json_engine_t *je, MEM_ROOT *current_mem_root)
+json_norm_parse(struct json_norm_value *root, json_engine_t *je, MEM_ROOT *current_mem_root, MEM_ROOT_DYNAMIC_ARRAY *stack)
 {
   size_t current = 0;
-  MEM_ROOT_DYNAMIC_ARRAY stack;
   int err = 0;
   DYNAMIC_STRING key;
   struct json_norm_value* root_ptr = root;
 
-  // Initialize the dynamic array to hold pointers to json_norm_value
-  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
-                              &stack, sizeof(struct json_norm_value*), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
-
   // Set the root pointer in the stack
-  mem_root_dynamic_array_set_val(&stack, &root_ptr, current);
+  mem_root_dynamic_array_set_val(stack, &root_ptr, current);
 
   err = init_dynamic_string(&key, NULL, 0, 0);
   if (err)
@@ -677,7 +671,7 @@ json_norm_parse(struct json_norm_value *root, json_engine_t *je, MEM_ROOT *curre
       const uchar *key_end;
       struct json_norm_value* new_val_ptr= NULL;
       struct json_norm_value** curr_val_ptr =
-            (struct json_norm_value**)mem_root_dynamic_array_get_val(&stack, current);
+            (struct json_norm_value**)mem_root_dynamic_array_get_val(stack, current);
       struct json_norm_value* curr_val = *curr_val_ptr;
       DBUG_ASSERT(curr_val->type == JSON_VALUE_OBJECT);
 
@@ -706,14 +700,14 @@ json_norm_parse(struct json_norm_value *root, json_engine_t *je, MEM_ROOT *curre
         struct json_norm_kv* kv;
         kv = json_norm_object_get_last_element(&curr_val->value.object);
         new_val_ptr = &kv->value;
-        mem_root_dynamic_array_set_val(&stack, &new_val_ptr, ++current);
+        mem_root_dynamic_array_set_val(stack, &new_val_ptr, ++current);
       }
       break;
     }
     case JST_VALUE:
     {
       struct json_norm_value** curr_val_ptr =
-             (struct json_norm_value**)mem_root_dynamic_array_get_val(&stack, current);
+             (struct json_norm_value**)mem_root_dynamic_array_get_val(stack, current);
       struct json_norm_value* curr_val = *curr_val_ptr;
       struct json_norm_array* current_arr = &curr_val->value.array;
 
@@ -732,7 +726,7 @@ json_norm_parse(struct json_norm_value *root, json_engine_t *je, MEM_ROOT *curre
       {
         struct json_norm_value* element =
                 json_norm_array_get_last_element(current_arr);
-        mem_root_dynamic_array_set_val(&stack, &element, ++current);
+        mem_root_dynamic_array_set_val(stack, &element, ++current);
       }
       break;
     }
@@ -763,33 +757,28 @@ json_norm_parse_end:
 static int
 json_norm_build(struct json_norm_value *root,
                 const char *s, size_t size, CHARSET_INFO *cs,
-                MEM_ROOT *current_mem_root)
+                MEM_ROOT *current_mem_root,
+                json_engine_t *je,
+                MEM_ROOT_DYNAMIC_ARRAY *stack)
 {
   int err= 0;
-  json_engine_t je;
-
 
   DBUG_ASSERT(s);
-  memset(&je, 0x00, sizeof(je));
 
   memset(root, 0x00, sizeof(struct json_norm_value));
   root->type= JSON_VALUE_UNINITIALIZED;
 
-  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
-                              &je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
-
-  err= json_scan_start(&je, cs, (const uchar *)s, (const uchar *)(s + size));
-  if (json_read_value(&je))
+  err= json_scan_start(je, cs, (const uchar *)s, (const uchar *)(s + size));
+  if (json_read_value(je))
   {
     return err;
   }
-  err= json_norm_value_init(root, &je);
+  err= json_norm_value_init(root, je);
 
   if (root->type == JSON_VALUE_OBJECT ||
       root->type == JSON_VALUE_ARRAY)
   {
-    err= json_norm_parse(root, &je, current_mem_root);
+    err= json_norm_parse(root, je, current_mem_root, stack);
     if (err)
     {
       return err;
@@ -803,7 +792,9 @@ json_norm_build(struct json_norm_value *root,
 int
 json_normalize(DYNAMIC_STRING *result,
                const char *s, size_t size, CHARSET_INFO *cs,
-               MEM_ROOT *current_mem_root)
+               MEM_ROOT *current_mem_root,
+               json_engine_t *temp_je,
+               MEM_ROOT_DYNAMIC_ARRAY *stack)
 {
   int err= 0;
   uint convert_err= 0;
@@ -811,11 +802,6 @@ json_normalize(DYNAMIC_STRING *result,
   char *s_utf8= NULL;
   size_t in_size;
   const char *in;
-  json_engine_t temp_je;
-
-  mem_root_dynamic_array_init(current_mem_root, PSI_NOT_INSTRUMENTED,
-                              &temp_je.stack, sizeof(int), NULL,
-                              JSON_DEPTH_DEFAULT, 0, MYF(0));
 
   DBUG_ASSERT(result);
 
@@ -851,14 +837,14 @@ json_normalize(DYNAMIC_STRING *result,
   }
 
 
-  if (!(json_valid(in, in_size, &my_charset_utf8mb4_bin, &temp_je) == 0))
+  if (!(json_valid(in, in_size, &my_charset_utf8mb4_bin, temp_je) == 0))
   {
     err= 1;
     goto json_normalize_end;
   }
 
   err= json_norm_build(&root, in, in_size,
-                    &my_charset_utf8mb4_bin, current_mem_root);
+                    &my_charset_utf8mb4_bin, current_mem_root, temp_je, stack);
   if (err)
     goto json_normalize_end;
 
