@@ -29,6 +29,7 @@
 class THD;
 
 #if defined(ENABLED_DEBUG_SYNC)
+#error have debug_sync
 
 /* Command line option --debug-sync-timeout. See mysqld.cc. */
 extern MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout;
@@ -46,6 +47,7 @@ extern bool debug_sync_set_action(THD *thd, const char *action_str, size_t len);
 extern bool debug_sync_update(THD *thd, char *val_str, size_t len);
 extern uchar *debug_sync_value_ptr(THD *thd);
 #else
+#error no debug_sync
 static inline void debug_sync_init_thread(THD *thd) {}
 static inline void debug_sync_end_thread(THD *thd) {}
 static inline void debug_sync_reset_thread(THD *thd) {}
