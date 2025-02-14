@@ -29,7 +29,6 @@
 class THD;
 
 #if defined(ENABLED_DEBUG_SYNC)
-#error have debug_sync
 
 /* Command line option --debug-sync-timeout. See mysqld.cc. */
 extern MYSQL_PLUGIN_IMPORT uint opt_debug_sync_timeout;
