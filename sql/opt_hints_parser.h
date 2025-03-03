@@ -63,9 +63,12 @@ public:
     tAT= '@',
     tLPAREN= '(',
     tRPAREN= ')',
+    // Other token types
+    tIDENT= 'i',
+    tUNSIGNED_NUMBER= 'n',
 
     // Keywords
-    keyword_BKA,
+    keyword_BKA = 256, // Value must be greater than any of the above
     keyword_BNL,
     keyword_NO_BKA,
     keyword_NO_BNL,
@@ -82,11 +85,7 @@ public:
     keyword_FIRSTMATCH,
     keyword_LOOSESCAN,
     keyword_DUPSWEEDOUT,
-    keyword_INTOEXISTS,
-
-    // Other token types
-    tIDENT,
-    tUNSIGNED_NUMBER
+    keyword_INTOEXISTS
   };
 
   class Token: public Lex_cstring
