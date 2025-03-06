@@ -172,7 +172,7 @@ int Wsrep_client_service::prepare_fragment_for_replication(
   }
 
   int ret= 0;
-  size_t total_length= 0;
+  size_t total_length= buffer.size();;
   size_t length= my_b_bytes_in_cache(cache);
 
   if (!length)
@@ -199,8 +199,11 @@ int Wsrep_client_service::prepare_fragment_for_replication(
     }
     while (cache->file >= 0 && (length= my_b_fill(cache)));
   }
+
   DBUG_ASSERT(total_length == buffer.size());
+
   log_position= saved_pos;
+
 cleanup:
   if (reinit_io_cache(cache, WRITE_CACHE, saved_pos, 0, 0))
   {
@@ -256,6 +259,7 @@ void Wsrep_client_service::will_replay()
 {
   DBUG_ASSERT(m_thd == current_thd);
   mysql_mutex_lock(&LOCK_wsrep_replaying);
+  DBUG_ASSERT(wsrep_replaying >= 0);
   ++wsrep_replaying;
   mysql_mutex_unlock(&LOCK_wsrep_replaying);
 }
@@ -272,7 +276,6 @@ void Wsrep_client_service::signal_replayed()
 
 enum wsrep::provider::status Wsrep_client_service::replay()
 {
-
   DBUG_ASSERT(m_thd == current_thd);
   DBUG_ENTER("Wsrep_client_service::replay");
 

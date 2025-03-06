@@ -1868,6 +1868,7 @@ int ha_commit_trans(THD *thd, bool all)
   if (trans->no_2pc || (rw_ha_count <= 1))
   {
 #ifdef WITH_WSREP
+    DEBUG_SYNC(thd, "wsrep_ha_trans_commit_before_commit_one_phase");
     /*
       This commit will not go through log_and_order() where wsrep commit
       ordering is normally done. Commit ordering must be done here.

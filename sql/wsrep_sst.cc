@@ -444,7 +444,8 @@ bool wsrep_sst_received (THD*                thd,
                                wsrep::seqno(seqno));
 
     if (!wsrep_before_SE()) {
-      wsrep_set_SE_checkpoint(wsrep::gtid::undefined(), wsrep_gtid_server.undefined());
+      wsrep_set_SE_checkpoint(wsrep::gtid::undefined(),
+                              wsrep_gtid_server.undefined());
       wsrep_set_SE_checkpoint(sst_gtid, wsrep_gtid_server.gtid());
     }
     wsrep_verify_SE_checkpoint(uuid, seqno);

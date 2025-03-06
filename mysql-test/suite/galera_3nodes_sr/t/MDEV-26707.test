@@ -158,15 +158,15 @@ SET SESSION wsrep_sync_wait = DEFAULT;
 --connection node_1a
 --let $wait_condition = SELECT COUNT(*) = 0 FROM mysql.wsrep_streaming_log
 --source include/wait_condition.inc
-SELECT COUNT(*) AS EXPECT_0 FROM  mysql.wsrep_streaming_log;
+SELECT COUNT(*) AS EXPECT_0 FROM mysql.wsrep_streaming_log;
 --connection node_2a
 --let $wait_condition = SELECT COUNT(*) = 0 FROM mysql.wsrep_streaming_log
 --source include/wait_condition.inc
-SELECT COUNT(*) AS EXPECT_0 FROM  mysql.wsrep_streaming_log;
+SELECT COUNT(*) AS EXPECT_0 FROM mysql.wsrep_streaming_log;
 --connection node_3a
 --let $wait_condition = SELECT COUNT(*) = 0 FROM mysql.wsrep_streaming_log
 --source include/wait_condition.inc
-SELECT COUNT(*) AS EXPECT_0 FROM  mysql.wsrep_streaming_log;
+SELECT COUNT(*) AS EXPECT_0 FROM mysql.wsrep_streaming_log;
 
 
 --connection node_1

@@ -48,7 +48,6 @@ f1	f2
 1	node1
 5	node2
 10	node1
-15	node2
 INSERT INTO t1 VALUES(15, 'node1');
 ERROR 23000: Duplicate entry '15' for key 'PRIMARY'
 COMMIT;

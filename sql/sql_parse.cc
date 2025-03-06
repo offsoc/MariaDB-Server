@@ -1362,7 +1362,8 @@ dispatch_command_return do_command(THD *thd, bool blocking)
 	command != COM_STMT_EXECUTE &&
         command != COM_QUIT)
     {
-      my_error(ER_LOCK_DEADLOCK, MYF(0));
+      wsrep_override_error(thd, ER_LOCK_DEADLOCK);
+
       WSREP_DEBUG("Deadlock error for: %s", thd->query());
       thd->reset_killed();
       thd->mysys_var->abort     = 0;
@@ -2406,9 +2407,7 @@ resume:
       wsrep_after_command_before_result(thd);
       if (wsrep_current_error(thd) && !wsrep_command_no_result(command))
       {
-        /* todo: Pass wsrep client state current error to override */
-        wsrep_override_error(thd, wsrep_current_error(thd),
-                             wsrep_current_error_status(thd));
+        wsrep_override_current_error(thd);
         WSREP_LOG_THD(thd, "leave");
       }
     }
@@ -2430,7 +2429,8 @@ resume:
       DBUG_ASSERT(thd->wsrep_trx().state() != wsrep::transaction::s_replaying);
       /* wsrep BF abort in query exec phase */
       mysql_mutex_lock(&thd->LOCK_thd_kill);
-      do_end_of_statement= thd_is_connection_alive(thd);
+      do_end_of_statement= (thd_is_connection_alive(thd) ||
+                            command == COM_SHUTDOWN);
       mysql_mutex_unlock(&thd->LOCK_thd_kill);
     }
   }
