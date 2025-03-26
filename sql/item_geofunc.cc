@@ -111,12 +111,7 @@ String *Item_func_geometry_from_wkb::val_str(String *str)
 
 bool Item_func_geometry_from_json::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-         BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));

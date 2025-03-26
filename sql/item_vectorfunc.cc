@@ -179,13 +179,7 @@ Item_func_vec_fromtext::Item_func_vec_fromtext(THD *thd, Item *a)
 
 bool Item_func_vec_fromtext::fix_length_and_dec(THD *thd)
 {
-
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, 0, MYF(0));
 

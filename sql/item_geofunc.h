@@ -269,12 +269,6 @@ public:
   String *val_str(String *) override;
   Item *do_get_copy(THD *thd) const override
   { return get_item_copy<Item_func_geometry_from_json>(thd, this); }
-  void cleanup() override
-  {
-    if (mem_root_inited)
-      free_root(&current_mem_root, MYF(0));
-   Item_geometry_func ::cleanup();
-  }
 };
 
 

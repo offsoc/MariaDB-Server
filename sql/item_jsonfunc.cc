@@ -15,6 +15,7 @@
 
 
 #include "mariadb.h"
+#include "mysqld.h"
 #include "sql_priv.h"
 #include "sql_class.h"
 #include "item.h"
@@ -596,12 +597,7 @@ static int path_setup_nwc(json_path_t *p, CHARSET_INFO *i_cs,
 
 bool Item_func_json_valid::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -633,21 +629,16 @@ bool Item_func_json_valid::val_bool()
 
 bool Item_func_json_equals::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je1.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je2.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &stack, sizeof(struct json_norm_value*), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -710,14 +701,14 @@ bool Item_func_json_equals::val_bool()
   }
 
   if (json_normalize(&a_res, a->ptr(), a->length(),
-                     a->charset(), &current_mem_root, &temp_je, &stack))
+                     a->charset(), current_thd->mem_root, &temp_je, &stack))
   {
     null_value= 1;
     goto end;
   }
 
   if (json_normalize(&b_res, b->ptr(), b->length(),
-                     b->charset(), &current_mem_root, &temp_je, &stack))
+                     b->charset(), current_thd->mem_root, &temp_je, &stack))
   {
     null_value= 1;
     goto end;
@@ -739,18 +730,13 @@ bool Item_func_json_exists::fix_length_and_dec(THD *thd)
   set_maybe_null();
   path.set_constant_flag(args[1]->const_item());
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &path.p.steps, sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   return FALSE;
@@ -775,19 +761,6 @@ bool Item_func_json_exists::val_bool()
 
   if ((null_value= args[0]->null_value || args[1]->null_value))
   {
-    null_value= 1;
-    return 0;
-  }
-
-  json_scan_start(&je, js->charset(),(const uchar *) js->ptr(),
-                  (const uchar *) js->ptr() + js->length());
-  while(json_scan_next(&je) == 0) {}
-
-  if (je.s.error)
-  {
-    report_json_error_ex(js->ptr(), (json_engine_t*)&je,
-                       "JSON_QUOTE" , 0,
-                      Sql_condition::WARN_LEVEL_WARN);
     null_value= 1;
     return 0;
   }
@@ -821,15 +794,10 @@ bool Item_func_json_value::fix_length_and_dec(THD *thd)
   set_constant_flag(args[1]->const_item());
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  Json_path_extractor::init_json_engine_stack(&current_mem_root);
+  Json_path_extractor::init_json_engine_stack(thd->mem_root);
 
   return FALSE;
 }
@@ -839,7 +807,7 @@ String *Item_func_json_value::val_str(String *to)
   String func_name_str("", 0, collation.collation);
   func_name_str.append(func_name_cstring());
 
-  null_value= Json_path_extractor::extract(&current_mem_root, to, args[0],
+  null_value= Json_path_extractor::extract(current_thd->mem_root, to, args[0],
                                        args[1],
                                        collation.collation,
                            &json_depth_array,
@@ -855,15 +823,10 @@ bool Item_func_json_query::fix_length_and_dec(THD *thd)
   set_constant_flag(args[1]->const_item());
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  Json_path_extractor::init_json_engine_stack(&current_mem_root);
+  Json_path_extractor::init_json_engine_stack(current_thd->mem_root);
 
   return FALSE;
 }
@@ -873,7 +836,7 @@ String *Item_func_json_query::val_str(String *to)
   String func_name_str("", 0, collation.collation);
   func_name_str.append(func_name_cstring());
 
-  null_value= Json_path_extractor::extract(&current_mem_root, to, args[0],
+  null_value= Json_path_extractor::extract(current_thd->mem_root, to, args[0],
                                            args[1],
                                            collation.collation,
                                &json_depth_array,
@@ -1016,12 +979,7 @@ bool Json_engine_scan::check_and_get_value_complex(String *res, int *error,
 
 bool Item_func_json_quote::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   collation.set(&my_charset_utf8mb4_bin);
@@ -1071,12 +1029,7 @@ String *Item_func_json_quote::val_str(String *str)
 
 bool Item_func_json_unquote::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -1238,29 +1191,24 @@ bool Item_func_json_extract::fix_length_and_dec(THD *thd)
   mark_constant_paths(paths, args+1, arg_count-1);
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &sav_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
   for (uint n_arg=1; n_arg < arg_count; n_arg++)
   {
     json_path_with_flags *c_path= paths + n_arg - 1;
-    mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+    mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                                 &(c_path->p.steps), sizeof(json_path_step_t),
                                 NULL, JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   }
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &p.steps, sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -1562,21 +1510,16 @@ bool Item_func_json_contains::fix_length_and_dec(THD *thd)
   if (arg_count > 2)
     path.set_constant_flag(args[2]->const_item());
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &(path.p.steps), sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &ve.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -1898,24 +1841,19 @@ bool Item_func_json_contains_path::fix_length_and_dec(THD *thd)
 
   mark_constant_paths(paths, args+2, arg_count-2);
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &(p.steps), sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   for (uint n_arg=2; n_arg < arg_count; n_arg++)
   {
     json_path_with_flags *c_path= paths + n_arg - 2;
-    mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+    mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                                 &c_path->p.steps,
                                 sizeof(json_path_step_t), NULL,
                                 JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
@@ -2109,6 +2047,7 @@ bool Item_func_json_contains_path::val_bool()
 
   json_get_path_start(&je, js->charset(),(const uchar *) js->ptr(),
                       (const uchar *) js->ptr() + js->length(), &p);
+
 
   if (!mode_one)
   {
@@ -2307,12 +2246,7 @@ bool Item_func_json_array::fix_length_and_dec(THD *thd)
   ulonglong char_length= 2;
   uint n_arg;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -2427,22 +2361,17 @@ bool Item_func_json_array_append::fix_length_and_dec(THD *thd)
         static_cast<ulonglong>(args[n_arg+1]->max_char_length()) + 4;
   }
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
   for (uint n_arg=1, n_path=0; n_arg < arg_count; n_arg+=2, n_path++)
   {
     json_path_with_flags *c_path= paths + n_path;
-    mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+    mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                                 &c_path->p.steps,
                                 sizeof(json_path_step_t), NULL,
                                 JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
@@ -3012,12 +2941,7 @@ continue_j2:
 
 bool Item_func_json_merge::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je2.stack,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
@@ -3435,20 +3359,15 @@ bool Item_func_json_length::fix_length_and_dec(THD *thd)
   set_maybe_null();
   max_length= 10;
 
- if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &(path.p.steps),
                               sizeof(json_path_step_t), NULL,
                                  JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
@@ -3545,12 +3464,7 @@ bool Item_func_json_depth::fix_length_and_dec(THD *thd)
 {
   max_length= 10;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   return false;
@@ -3613,12 +3527,7 @@ bool Item_func_json_type::fix_length_and_dec(THD *thd)
   max_length= 12 * collation.collation->mbmaxlen;
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -3696,15 +3605,10 @@ bool Item_func_json_insert::fix_length_and_dec(THD *thd)
   uint n_arg;
   ulonglong char_length;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -3714,7 +3618,7 @@ bool Item_func_json_insert::fix_length_and_dec(THD *thd)
   for (uint n_arg=1, n_path=0; n_arg < arg_count; n_arg+=2, n_path++)
   {
     json_path_with_flags *c_path= paths + n_path;
-    mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+    mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                                 &c_path->p.steps,
                                 sizeof(json_path_step_t),
                                 NULL, JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
@@ -4009,22 +3913,17 @@ bool Item_func_json_remove::fix_length_and_dec(THD *thd)
   collation.set(args[0]->collation);
   max_length= args[0]->max_length;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   for (uint n_arg=1, n_path=0; n_arg < arg_count; n_arg++, n_path++)
   {
     json_path_with_flags *c_path= paths + n_path;
-    mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+    mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                                 &c_path->p.steps, sizeof(json_path_step_t),
                                 NULL, JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   }
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -4250,18 +4149,13 @@ bool Item_func_json_keys::fix_length_and_dec(THD *thd)
   collation.set(args[0]->collation);
   max_length= args[0]->max_length;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &path.p.steps, sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   set_maybe_null();
@@ -4460,27 +4354,22 @@ bool Item_func_json_search::fix_length_and_dec(THD *thd)
     mark_constant_paths(paths, args+4, arg_count-4);
   set_maybe_null();
 
-   if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &p.steps, sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &sav_path.steps, sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   for (uint n_arg=4; n_arg < arg_count; n_arg++)
   {
     json_path_with_flags *c_path= paths + n_arg - 4;
-    mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+    mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                                 &c_path->p.steps, sizeof(json_path_step_t), NULL,
                                 JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   }
@@ -4702,12 +4591,7 @@ bool Item_func_json_format::fix_length_and_dec(THD *thd)
   };
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -4770,11 +4654,8 @@ int Arg_comparator::compare_json_str_basic(Item *j, Item *s)
   String *js,*str;
   int c_len;
   json_engine_t je;
-  MEM_ROOT current_mem_root;
 
-  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root, 8192, 0, MYF(0));
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(current_thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   if ((js= j->val_str(&value1)))
@@ -4807,13 +4688,11 @@ int Arg_comparator::compare_json_str_basic(Item *j, Item *s)
      {
        if (set_null)
          owner->null_value= 0;
-       free_root(&current_mem_root, MYF(0));
        return sortcmp(js, str, compare_collation());
      }
   }
 
 error:
-  free_root(&current_mem_root, MYF(0));
   if (set_null)
     owner->null_value= 1;
   return -1;
@@ -5060,7 +4939,7 @@ String *Item_func_json_normalize::val_str(String *buf)
 
   if (json_normalize(&normalized_json,
                      raw_json->ptr(), raw_json->length(),
-                     raw_json->charset(), &current_mem_root,
+                     raw_json->charset(), current_thd->mem_root,
                      &temp_je, &stack))
   {
     null_value= 1;
@@ -5082,18 +4961,13 @@ end:
 
 bool Item_func_json_normalize::fix_length_and_dec(THD *thd)
 {
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &stack, sizeof(struct json_norm_value*), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -5533,7 +5407,7 @@ bool Item_func_json_overlaps::val_bool()
   if (json_read_value(&je) || json_read_value(&ve))
     goto error;
 
-  result= check_overlaps(&je, &ve, false, &current_mem_root, &temp_je, &stack);
+  result= check_overlaps(&je, &ve, false, current_thd->mem_root, &temp_je, &stack);
 
   while (json_scan_next(&je) == 0) {}
   while(json_scan_next(&ve) == 0) {}
@@ -5556,21 +5430,16 @@ bool Item_func_json_overlaps::fix_length_and_dec(THD *thd)
   a2_parsed= FALSE;
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &ve.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &stack, sizeof(struct json_norm_value*), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -5611,7 +5480,7 @@ bool Item_func_json_schema_valid::val_bool()
     Json_schema_keyword* curr_keyword= NULL;
     while ((curr_keyword=it++))
     {
-      if (curr_keyword->validate(&ve, &current_mem_root, NULL, NULL))
+      if (curr_keyword->validate(&ve, current_thd->mem_root, NULL, NULL))
       {
         is_valid= 0;
         break;
@@ -5655,15 +5524,10 @@ bool Item_func_json_schema_valid::fix_length_and_dec(THD *thd)
 
   String *js= NULL;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &ve.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
   if (!is_schema_constant)
@@ -5682,7 +5546,7 @@ bool Item_func_json_schema_valid::fix_length_and_dec(THD *thd)
   }
   json_scan_start(&je, js->charset(), (const uchar *) js->ptr(),
                   (const uchar *) js->ptr() + js->length());
-  if (!create_object_and_handle_keyword(thd, &current_mem_root, &je,
+  if (!create_object_and_handle_keyword(thd, current_thd->mem_root, &je,
                                         &keyword_list,
                                         &all_keywords))
     schema_parsed= true;
@@ -5718,9 +5582,6 @@ void Item_func_json_schema_valid::cleanup()
   }
   all_keywords.empty();
   keyword_list.empty();
-
-  if (mem_root_inited)
-      free_root(&current_mem_root, MYF(0));
 
   Item_bool_func::cleanup();
 
@@ -5812,7 +5673,7 @@ if ((null_value= args[0]->null_value) ||
   {
     goto return_null;
   }
-  null_value= Json_path_extractor::extract(&current_mem_root, &tmp_str,
+  null_value= Json_path_extractor::extract(current_thd->mem_root, &tmp_str,
                                            args[0], args[1],
                                            collation.collation,
                                            &json_depth_array,
@@ -5854,28 +5715,23 @@ bool Item_func_json_key_value::fix_length_and_dec(THD *thd)
   set_constant_flag(args[1]->const_item());
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &json_depth_array,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &p.steps,
                               sizeof(json_path_step_t), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je_scan.stack,
                               sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  Json_path_extractor::init_json_engine_stack(&current_mem_root);
+  Json_path_extractor::init_json_engine_stack(current_thd->mem_root);
   return FALSE;
 }
 
@@ -6077,7 +5933,7 @@ String* Item_func_json_array_intersect::val_str(String *str)
   if (json_read_value(&je2) || je2.value_type != JSON_VALUE_ARRAY)
     goto error_return;
 
-  if (get_intersect_between_arrays(str, &je2, items, &current_mem_root, &temp_je, &stack))
+  if (get_intersect_between_arrays(str, &je2, items, current_thd->mem_root, &temp_je, &stack))
     goto error_return;
 
   if (str->length())
@@ -6117,7 +5973,7 @@ void Item_func_json_array_intersect::prepare_json_and_create_hash(json_engine_t 
   hash_root_inited= true;
 
   if (json_read_value(je1) || je1->value_type != JSON_VALUE_ARRAY ||
-      create_hash(je1, &items, hash_inited, &hash_root, &current_mem_root, &temp_je, &stack))
+      create_hash(je1, &items, hash_inited, &hash_root, current_thd->mem_root, &temp_je, &stack))
     {
       if (je1->s.error)
         report_json_error(js, je1, 0);
@@ -6132,26 +5988,21 @@ bool Item_func_json_array_intersect::fix_length_and_dec(THD *thd)
 {
   String *js1= args[0]->val_json(&tmp_js1);;
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je1.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &res_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je2.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &stack, sizeof(struct json_norm_value*), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -6298,24 +6149,19 @@ bool Item_func_json_object_filter_keys::fix_length_and_dec(THD *thd)
 {
   String *js2= args[1]->val_json(&tmp_js2);
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je1.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je_res.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &temp_je2.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &stack, sizeof(struct json_norm_value*), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -6332,7 +6178,7 @@ bool Item_func_json_object_filter_keys::fix_length_and_dec(THD *thd)
   hash_root_inited= true;
 
   if (json_read_value(&temp_je) || temp_je.value_type != JSON_VALUE_ARRAY ||
-      create_hash(&temp_je, &items, hash_inited, &hash_root, &current_mem_root, &temp_je2, &stack))
+      create_hash(&temp_je, &items, hash_inited, &hash_root, current_thd->mem_root, &temp_je2, &stack))
   {
     if (temp_je.s.error)
       report_json_error(js2, &temp_je, 0);
@@ -6460,12 +6306,7 @@ bool Item_func_json_object_to_array::fix_length_and_dec(THD *thd)
   max_length= args[0]->max_length + (args[0]->max_length/2);
   set_maybe_null();
 
-  if (!mem_root_inited)
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 

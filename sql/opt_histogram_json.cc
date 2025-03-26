@@ -750,14 +750,10 @@ bool Histogram_json_hb::parse(MEM_ROOT *mem_root, const char *db_name,
   double total_size;
   int end_element;
   bool end_assigned;
-  MEM_ROOT current_mem_root;
 
   DBUG_ENTER("Histogram_json_hb::parse");
 
-  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-       BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-
-  mem_root_dynamic_array_init(&current_mem_root, PSI_NOT_INSTRUMENTED,
+  mem_root_dynamic_array_init(mem_root, PSI_NOT_INSTRUMENTED,
                               &je.stack, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
 
@@ -811,7 +807,6 @@ bool Histogram_json_hb::parse(MEM_ROOT *mem_root, const char *db_name,
       // Some unknown member. Skip it.
       if (json_skip_key(&je))
       {
-        free_root(&current_mem_root, MYF(0));
         return 1;
       }
     }
@@ -833,12 +828,9 @@ bool Histogram_json_hb::parse(MEM_ROOT *mem_root, const char *db_name,
     goto err;
   }
 
-  free_root(&current_mem_root, MYF(0));
-
   DBUG_RETURN(false); // Ok
 err:
   THD *thd= current_thd;
-  free_root(&current_mem_root, MYF(0));
   push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                       ER_JSON_HISTOGRAM_PARSE_FAILED,
                       ER_THD(thd, ER_JSON_HISTOGRAM_PARSE_FAILED),

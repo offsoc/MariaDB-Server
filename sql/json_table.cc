@@ -372,10 +372,6 @@ int ha_json_table::rnd_init(bool scan)
                  (const uchar *) m_js->ptr(), (const uchar *) m_js->end());
   }
 
-  init_alloc_root(PSI_NOT_INSTRUMENTED, &current_mem_root,
-                    BLOCK_SIZE_JSON_DYN_ARRAY, 0, MYF(0));
-  mem_root_inited= true;
-
   mem_root_dynamic_array_init(current_thd->mem_root, PSI_NOT_INSTRUMENTED,
                               &array_counters, sizeof(int), NULL,
                               JSON_DEPTH_DEFAULT, JSON_DEPTH_INC, MYF(0));
