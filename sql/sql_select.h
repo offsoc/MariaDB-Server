@@ -1908,6 +1908,7 @@ private:
   void init_join_cache_and_keyread();
   bool prepare_sum_aggregators(THD *thd,Item_sum **func_ptr,
                                bool need_distinct);
+  void recalc_tmp_table_params();
 };
 
 enum enum_with_bush_roots { WITH_BUSH_ROOTS, WITHOUT_BUSH_ROOTS};

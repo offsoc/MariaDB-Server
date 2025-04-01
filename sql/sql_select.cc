@@ -3316,7 +3316,6 @@ bool JOIN::add_fields_for_current_rowid(JOIN_TAB *cur, List<Item> *table_fields)
   return 0;
 }
 
-
 /**
   Set info for aggregation tables
 
@@ -3370,6 +3369,12 @@ bool JOIN::make_aggr_tables_info()
     join_tab[top_join_tab_count - 1].fields= &fields_list;
     join_tab[top_join_tab_count - 1].all_fields= &all_fields;
   }
+
+  /*
+    Some JOIN parameters might have changed since preparation.
+    Update `tmp_table_param` them to reflect possible changes
+  */
+  recalc_tmp_table_params();
 
   /*
     All optimization is done. Check if we can use the storage engines
@@ -25740,7 +25745,18 @@ next_item:
 
 
 /**
-  Update join with count of the different type of fields.
+  Update TMP_TABLE_PARAM with count of the different type of fields.
+
+  This function counts the number of fields, functions and aggregation
+  functions (items with type SUM_FUNC_ITEM) for use by
+  create_tmp_table() and stores it in the TMP_TABLE_PARAM object.
+  It also resets and calculates the quick_group property and resets
+  hidden_field_count
+
+  @param select_lex           SELECT_LEX of query
+  @param param                Description of temp table
+  @param fields               List of fields to count
+  @param reset_with_sum_func  Whether to reset with_sum_func of func items
 */
 
 void
@@ -25790,6 +25806,52 @@ count_field_types(SELECT_LEX *select_lex, TMP_TABLE_PARAM *param,
         cache->reset_with_sum_func();
     }
   }
+}
+
+
+/**
+  Recalculate values `field_count` and `func_count` of JOIN::tmp_table_param.
+  TODO: add more comments, mention ROLLUP and sync of code with JOIN::rollup_init
+*/
+
+void JOIN::recalc_tmp_table_params()
+{
+  List_iterator<Item> li(all_fields);
+  Item *field;
+
+  tmp_table_param.field_count= tmp_table_param.func_count= 0;
+  while ((field=li++))
+  {
+    Item::Type real_type= field->real_item()->type();
+    if (real_type == Item::FIELD_ITEM)
+      tmp_table_param.field_count++;
+    else if (real_type == Item::SUM_FUNC_ITEM)
+    {
+      if (!field->const_item())
+      {
+        Item_sum *sum_item=(Item_sum*) field->real_item();
+        if (!sum_item->depended_from() ||
+            sum_item->depended_from() == select_lex)
+        {
+          for (uint i=0 ; i < sum_item->get_arg_count() ; i++)
+          {
+            if (sum_item->get_arg(i)->real_item()->type() == Item::FIELD_ITEM)
+              tmp_table_param.field_count++;
+            else
+              tmp_table_param.func_count++;
+          }
+        }
+        tmp_table_param.func_count++;
+      }
+    }
+    else
+      tmp_table_param.func_count++;
+  }
+  // OLEGS: 
+  // This is done same way as in JOIN::rollup_init. Comment JOIN::rollup_init
+  // to keep this in sync
+  if (rollup.state != ROLLUP::STATE_NONE)
+    tmp_table_param.func_count+= send_group_parts;
 }
 
 
