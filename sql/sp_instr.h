@@ -168,6 +168,8 @@ public:
 
   virtual void print(String *str) = 0;
 
+  virtual LEX_CSTRING *get_field() { return nullptr; }
+
   void print_cmd_and_array_element(String *str,
                                    const LEX_CSTRING &cmd,
                                    const LEX_CSTRING &rcontext_name,
@@ -810,6 +812,8 @@ public:
   int exec_core(THD *thd, uint *nextp) override;
 
   void print(String *str) override;
+
+  LEX_CSTRING *get_field() override { return &m_trigger_field_name; }
 
   bool is_invalid() const override
   {

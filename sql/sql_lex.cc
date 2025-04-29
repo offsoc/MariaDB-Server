@@ -239,6 +239,11 @@ bool LEX::set_trigger_new_row(const LEX_CSTRING *name, Item *val,
   if (unlikely(sp_fld == NULL))
     return TRUE;
 
+  if (name->length ^ sphead->m_cur_instr_trig_field_items.first->field_name.length)
+  {
+    my_error(ER_WRONG_VALUE_COUNT_ON_ROW, MYF(0), 1L);
+    return TRUE;
+  }
   /*
     Let us add this item to list of all Item_trigger_field
     objects in trigger.
@@ -9154,6 +9159,12 @@ bool LEX::set_variable(const Lex_ident_sys_st *name, Item *item,
   sp_pcontext *ctx;
   const Sp_rcontext_handler *rh;
   sp_variable *spv= find_variable(name, &ctx, &rh);
+  Lex_ident_cli empty(empty_clex_str.str, empty_clex_str.length);
+  Lex_ident_sys end(thd, &empty);
+
+  if (is_trigger_new_or_old_reference(name))
+    return set_trigger_field(name, &end, item, expr_str);
+
   return spv ? sphead->set_local_variable(thd, ctx, rh, spv, item, this, true,
                                           expr_str) :
                set_system_variable(option_type, name, item);

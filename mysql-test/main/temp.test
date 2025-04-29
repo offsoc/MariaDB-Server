@@ -1,0 +1,22 @@
+CREATE TABLE t1 (
+    id INT,
+    name VARCHAR(50)
+);
+
+INSERT INTO t1 (id, name) VALUES (6, 'abc');
+
+SELECT * FROM t1;
+
+DELIMITER //;
+CREATE TRIGGER prevent_any_name_change
+BEFORE UPDATE ON t1
+FOR EACH ROW
+BEGIN
+    SET NEW = OLD;
+END //
+DELIMITER ;//
+
+UPDATE t1 SET name = 'xyz' WHERE id = 6;
+SELECT * FROM t1;
+
+DROP TABLE t1;

@@ -3176,7 +3176,7 @@ sp_head::show_create_routine(THD *thd, const Sp_handler *sph)
   @param instr   Instruction
 */
 
-int sp_head::add_instr(sp_instr *instr)
+int sp_head::add_instr(sp_instr *instr, bool is_being_parsed)
 {
   instr->free_list= m_thd->free_list;
   m_thd->free_list= 0;
@@ -3187,7 +3187,8 @@ int sp_head::add_instr(sp_instr *instr)
     entire stored procedure, as their life span is equal.
   */
   instr->mem_root= &main_mem_root;
-  instr->m_lineno= m_thd->m_parser_state->m_lip.yylineno;
+  if (is_being_parsed)
+    instr->m_lineno= m_thd->m_parser_state->m_lip.yylineno;
 
   /*
     Check if SP is a trigger and there are Item_trigger_field objects
@@ -3221,6 +3222,10 @@ int sp_head::add_instr(sp_instr *instr)
         &instr_trig_fld_list->first->next_trig_field_list);
     }
   }
+
+  if (is_being_parsed && instr->get_field() && !instr->get_field()->length)
+    return false;
+
   return insert_dynamic(&m_instr, (uchar*)&instr);
 }
 

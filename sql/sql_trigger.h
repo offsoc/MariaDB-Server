@@ -311,6 +311,10 @@ public:
                         bool old_row_is_record1,
                         bool *skip_row_indicator,
                         List<Item> *fields_in_update_stmt= nullptr);
+  void replace_row_var_with_fields(THD *thd,
+    SQL_I_List<SQL_I_List<Item_trigger_field> >
+       &trg_table_fields,
+   TABLE *table);
   void empty_lists();
   bool create_lists_needed_for_files(MEM_ROOT *root);
   bool save_trigger_file(THD *thd, const LEX_CSTRING *db, const LEX_CSTRING *table_name);

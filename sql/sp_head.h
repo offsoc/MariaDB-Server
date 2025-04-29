@@ -386,7 +386,7 @@ public:
   MEM_ROOT *get_main_mem_root() { return &main_mem_root; }
 
   int
-  add_instr(sp_instr *instr);
+  add_instr(sp_instr *instr, bool is_being_parsed= true);
 
   bool
   add_instr_jump(THD *thd, sp_pcontext *spcont);
@@ -1045,6 +1045,9 @@ public:
     a current instruction of trigger's body
   */
   SQL_I_List<Item_trigger_field> m_cur_instr_trig_field_items;
+
+  DYNAMIC_ARRAY *get_instr() { return &m_instr; }
+  THD *get_m_thd() { return m_thd; }
 }; // class sp_head : public Sql_alloc
 
 

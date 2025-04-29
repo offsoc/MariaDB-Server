@@ -7368,6 +7368,9 @@ public:
     read_only (ro),  original_privilege(priv), want_privilege(priv)
   {
   }
+  Name_resolution_context *get_context() { return context; }
+  privilege_t get_priv() { return original_privilege; }
+  bool get_read_only() { return read_only; }
   void setup_field(THD *thd, TABLE *table, GRANT_INFO *table_grant_info);
   Type type() const override { return TRIGGER_FIELD_ITEM; }
   bool eq(const Item *item, bool binary_cmp) const override;

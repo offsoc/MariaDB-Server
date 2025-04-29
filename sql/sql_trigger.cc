@@ -40,6 +40,7 @@
 #include "wsrep_mysqld.h"
 #include <my_time.h>
 #include <mysql_time.h>
+#include "sp_instr.h"
 
 /*************************************************************************/
 
@@ -885,7 +886,7 @@ static void build_trig_stmt_query(THD *thd, TABLE_LIST *tables,
 template <typename FN>
 static
 bool iterate_trigger_fields_and_run_func(
-  SQL_I_List<SQL_I_List<Item_trigger_field> > &trg_table_fields,
+  TABLE *table, SQL_I_List<SQL_I_List<Item_trigger_field> > &trg_table_fields,
   FN fn
   )
 {
@@ -903,6 +904,120 @@ bool iterate_trigger_fields_and_run_func(
     }
   }
   return false;
+}
+
+/*
+  Iterate through the trigger fields and check if column name is empty.
+  (NEW=OLD)
+  If the column name is empty, iterate through the fields and get the
+  field names to create new Item_trigger_field object corresponding to
+  that table and insert it into the tigger table field list.
+  Once all the fields are added, all other occurences of empty field name
+  can be ignored to avoid unnecessary addition.
+*/
+void Table_triggers_list::
+     replace_row_var_with_fields(THD *thd,
+                                 SQL_I_List<SQL_I_List<Item_trigger_field> >
+                                    &trg_table_fields,
+                                TABLE *table)
+{
+  SQL_I_List<Item_trigger_field> *curr_trg_fld_lst= trg_table_fields.first,
+                                 *prev_trg_fld_lst= trg_table_fields.first;
+  bool row_var_replaced_with_values= false;
+  MEM_ROOT *temp_mem_root= thd->mem_root;
+
+  thd->mem_root= thd->lex->sphead->get_main_mem_root();
+
+  while(curr_trg_fld_lst)
+  {
+     /*
+       implies the second field name is also empty, otherwise
+       we would have already returned error.
+     */
+    if (!curr_trg_fld_lst->first->field_name.length)
+    {
+      /* avoid adding same fields multiple times. */
+      if (!(row_var_replaced_with_values))
+      {
+        Field_iterator_table field_iterator;
+        Field *field;
+
+        field_iterator.set_table(table);
+
+        for (; !field_iterator.end_of_fields(); field_iterator.next())
+        {
+          sp_instr_set_trigger_field *sp_fld;
+          sp_lex_local *new_lex;
+          LEX *temp_lex= NULL;
+          Item_trigger_field *trg_fld_first, *trg_fld_first_copy= curr_trg_fld_lst->first,
+          *trg_fld_second, *trg_fld_second_copy= curr_trg_fld_lst->first->next_trg_field;
+
+          LEX_CSTRING expr_str= {"", 0};
+
+          /* create new lex because each assignment is a separate instruction. */
+          if (!(new_lex= new (thd->mem_root) sp_lex_set_var(thd, thd->lex)) ||
+                new_lex->main_select_push())
+            return;
+
+          temp_lex= thd->lex;
+          thd->lex= new_lex;
+
+          if ((field= field_iterator.field()) && field->invisible != VISIBLE)
+            continue;
+
+          /*
+           create Item_trigger_field corresponding to what we have in SET,
+           create sp instruction for trigger field and add instruction.
+          */
+          trg_fld_first= new (thd->mem_root)
+            Item_trigger_field(thd, thd->lex->current_context(),
+                               trg_fld_first_copy->row_version,
+                               field->field_name, trg_fld_first_copy->get_priv(),
+                               trg_fld_first_copy->get_read_only());
+          thd->lex->sphead->m_cur_instr_trig_field_items.insert(trg_fld_first,
+                                &trg_fld_first->next_trg_field);
+
+          trg_fld_second= new (thd->mem_root)
+             Item_trigger_field(thd, thd->lex->current_context(),
+              trg_fld_second_copy->row_version,
+              field->field_name, trg_fld_second_copy->get_priv(),
+              trg_fld_second_copy->get_read_only());
+          thd->lex->sphead->m_cur_instr_trig_field_items.insert(trg_fld_second,
+                                               &trg_fld_second->next_trg_field);
+
+          sp_fld= new (thd->mem_root)
+              sp_instr_set_trigger_field(thd->lex->sphead->instructions(),
+                                         thd->lex->spcont, trg_fld_second,
+                                         trg_fld_first, thd->lex, expr_str);
+          thd->lex->sphead->add_instr(sp_fld, false);
+
+          thd->lex->pop_select();
+          thd->lex= temp_lex;
+        }
+        row_var_replaced_with_values= true;
+      }
+      /*very first element is empty. */
+      if (prev_trg_fld_lst == curr_trg_fld_lst)
+      {
+        trg_table_fields.first= curr_trg_fld_lst->first->next_trig_field_list;
+        curr_trg_fld_lst= trg_table_fields.first;
+        prev_trg_fld_lst= trg_table_fields.first;
+        trg_table_fields.elements--;
+      }
+      else
+      {
+        prev_trg_fld_lst->first->next_trig_field_list= curr_trg_fld_lst->first->next_trig_field_list;
+        curr_trg_fld_lst= curr_trg_fld_lst->first->next_trig_field_list;
+        trg_table_fields.elements--;
+      }
+    }
+    else
+    {
+      prev_trg_fld_lst= curr_trg_fld_lst;
+      curr_trg_fld_lst= curr_trg_fld_lst->first->next_trig_field_list;
+    }
+  }
+  thd->mem_root= temp_mem_root;
 }
 
 /**
@@ -961,6 +1076,8 @@ bool Table_triggers_list::create_trigger(THD *thd, TABLE_LIST *tables,
   if (sp_process_definer(thd))
     DBUG_RETURN(true);
 
+  replace_row_var_with_fields(thd, lex->sphead->m_trg_table_fields, table);
+
   /*
     Let us check if all references to fields in old/new versions of row in
     this trigger are ok.
@@ -978,7 +1095,7 @@ bool Table_triggers_list::create_trigger(THD *thd, TABLE_LIST *tables,
   old_field= new_field= table->field;
 
   if (iterate_trigger_fields_and_run_func(
-        lex->sphead->m_trg_table_fields,
+        table, lex->sphead->m_trg_table_fields,
         [thd, table] (Item_trigger_field* trg_field)
         {
           /*
@@ -2011,7 +2128,7 @@ bool Table_triggers_list::check_n_load(THD *thd, const LEX_CSTRING *db,
         */
 
         (void)iterate_trigger_fields_and_run_func(
-          sp->m_trg_table_fields,
+          table, sp->m_trg_table_fields,
           [thd, table, trigger] (Item_trigger_field* trg_field)
           {
             trg_field->setup_field(thd, table, &trigger->subject_table_grants);
@@ -2980,7 +3097,7 @@ void Table_triggers_list::mark_fields_used(trg_event_type event)
         continue;
 
       (void)iterate_trigger_fields_and_run_func(
-        trigger->body->m_trg_table_fields,
+        trigger_table, trigger->body->m_trg_table_fields,
         [this] (Item_trigger_field* trg_field)
         {
           /* We cannot mark fields which does not present in table. */

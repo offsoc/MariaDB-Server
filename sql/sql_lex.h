@@ -4042,9 +4042,15 @@ public:
                              const char *start, const char *end);
   Item *create_item_ident(THD *thd, Lex_ident_cli_st *cname)
   {
-    Lex_ident_sys name(thd, cname);
+    Lex_ident_cli empty(empty_clex_str.str, empty_clex_str.length);
+    Lex_ident_sys name(thd, cname), end(thd, &empty);
+
     if (name.is_null())
       return NULL; // EOM
+    if (is_trigger_new_or_old_reference(&name))
+    {
+      return create_item_ident_nospvar(thd, &name, &end);
+    }
     return sphead ?
            create_item_ident_sp(thd, &name, cname->pos(), cname->end()) :
            create_item_ident_nosp(thd, &name);
