@@ -1237,7 +1237,7 @@ int json_path_setup(json_path_t *p,
     case PS_KEY:
       p->last_step_idx++;
       last_step= (json_path_step_t*)
-                           mem_root_dynamic_array_get_val(&p->steps,
+                           mem_root_dynamic_array_resize_and_get_val(&p->steps,
                                                           p->last_step_idx);
       is_to= 0;
       prev_value= 0;
@@ -1256,7 +1256,7 @@ int json_path_setup(json_path_t *p,
     case PS_AR:
       p->last_step_idx++;
       last_step= (json_path_step_t*)
-                           mem_root_dynamic_array_get_val(&p->steps,
+                           mem_root_dynamic_array_resize_and_get_val(&p->steps,
                                                           p->last_step_idx);
 
       last_step->key= (const uchar*)"";
@@ -1391,7 +1391,7 @@ static int handle_match(json_engine_t *je, json_path_t *p,
 
   idx= *p_cur_step - initial_step;
   next_step=
-         (json_path_step_t*)mem_root_dynamic_array_get_val(&p->steps, idx+1);
+         (json_path_step_t*)mem_root_dynamic_array_resize_and_get_val(&p->steps, idx+1);
 
   DBUG_ASSERT(*p_cur_step < last_step);
 
@@ -1404,7 +1404,7 @@ static int handle_match(json_engine_t *je, json_path_t *p,
     {
       idx= next_step - initial_step;
       next_step=
-            (json_path_step_t*)mem_root_dynamic_array_get_val(&p->steps, idx+1);
+            (json_path_step_t*)mem_root_dynamic_array_resize_and_get_val(&p->steps, idx+1);
       if (next_step > last_step)
       {
         je->s.c_str= je->value_begin;
@@ -1423,7 +1423,7 @@ static int handle_match(json_engine_t *je, json_path_t *p,
       mem_root_dynamic_array_set_val(array_counters, &val, (next_step - initial_step));
       idx= next_step - initial_step;
       next_step=
-          (json_path_step_t*)mem_root_dynamic_array_get_val(&p->steps, idx+1);
+          (json_path_step_t*)mem_root_dynamic_array_resize_and_get_val(&p->steps, idx+1);
       if (next_step > last_step)
       {
         je->s.c_str= je->value_begin;
@@ -1936,7 +1936,7 @@ int json_get_path_next(json_engine_t *je, json_path_t *p)
     {
       p->last_step_idx++;
       last_step=(json_path_step_t*)
-                           mem_root_dynamic_array_get_val(&p->steps,
+                           mem_root_dynamic_array_resize_and_get_val(&p->steps,
                                                           p->last_step_idx);
 
       last_step->type= (enum json_path_step_types) je->value_type;

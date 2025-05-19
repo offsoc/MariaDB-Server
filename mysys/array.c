@@ -522,7 +522,30 @@ inline int mem_root_dynamic_array_set_val(MEM_ROOT_DYNAMIC_ARRAY *array,
   return FALSE;
 }
 
+/*
+  Note: If these two are merged, the resultant function will have to have
+  a conditional block of code. Now, these are called in recursive functions.
+  and although in non-recursive case it would probably not matter much,
+  calling functions with conditional block recursively introduces performance
+  delay.
+
+  Hence, to avoid the performance issue, where we know for sure
+  that there will be no need to resize, directly get value. And
+  in other places where there might be a need to resize the array,
+  use the one with resize.
+*/
 inline void* mem_root_dynamic_array_get_val(MEM_ROOT_DYNAMIC_ARRAY *array, size_t idx)
+{
+  void* element_ptr;
+
+  DBUG_ASSERT(idx < array->max_element);
+
+  // Calculate the pointer to the desired element in the array
+  element_ptr = array->buffer + (idx * array->size_of_element);
+  return element_ptr;
+}
+
+inline void* mem_root_dynamic_array_resize_and_get_val(MEM_ROOT_DYNAMIC_ARRAY *array, size_t idx)
 {
   void* element_ptr;
 
@@ -538,23 +561,5 @@ inline void* mem_root_dynamic_array_get_val(MEM_ROOT_DYNAMIC_ARRAY *array, size_
   */
   DBUG_ASSERT(idx < array->max_element);
 
-  // Calculate the pointer to the desired element in the array
-  element_ptr = array->buffer + (idx * array->size_of_element);
-  return element_ptr;
-}
-
-inline void* mem_root_dynamic_array_increment(MEM_ROOT_DYNAMIC_ARRAY *array, uchar* ptr, size_t n)
-{
-  /* first get the current "index" (hence the -1) of the array. */
-  size_t curr_idx= (ptr-array->buffer)/(array->size_of_element)-1;
-
-  if (curr_idx + n >= array->max_element)
-  {
-    ptr= mem_root_dynamic_array_get_val(array, curr_idx+n);
-  }
-  else
-  {
-    ptr= ptr+ n * array->size_of_element;
-  }
-  return ptr;
+  return mem_root_dynamic_array_get_val(array, idx);
 }

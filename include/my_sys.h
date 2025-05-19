@@ -1190,11 +1190,10 @@ extern int mem_root_dynamic_array_init(MEM_ROOT *mem_root,
                                        myf my_flags);
 extern int mem_root_dynamic_array_set_val(MEM_ROOT_DYNAMIC_ARRAY *array,
                                           const void *element, size_t idx);
-extern void* mem_root_dynamic_array_get_val(MEM_ROOT_DYNAMIC_ARRAY *array,
+extern void* mem_root_dynamic_array_resize_and_get_val(MEM_ROOT_DYNAMIC_ARRAY *array,
                                             size_t idx);
+extern void* mem_root_dynamic_array_get_val(MEM_ROOT_DYNAMIC_ARRAY *array, size_t idx);
 extern void mem_root_dynamic_array_reset(MEM_ROOT_DYNAMIC_ARRAY *array);
-extern void* mem_root_dynamic_array_increment(MEM_ROOT_DYNAMIC_ARRAY *array, uchar* ptr, size_t n);
-
 #include <mysql/psi/psi.h>
 
 #ifdef HAVE_PSI_INTERFACE

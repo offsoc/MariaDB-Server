@@ -189,10 +189,7 @@ int json_path_parts_compare(const MEM_ROOT_DYNAMIC_ARRAY *a_arr,
              (a->type & JSON_PATH_ARRAY_WILD) == JSON_PATH_ARRAY &&
              a->n_item == 0)
       {
-        a= (json_path_step_t*)
-            mem_root_dynamic_array_increment((MEM_ROOT_DYNAMIC_ARRAY*)a_arr,
-                                              (uchar*)a, 1);
-        if (a > a_end)
+        if (++a > a_end)
           return 0;
       }
       return -2;
@@ -208,8 +205,7 @@ int json_path_parts_compare(const MEM_ROOT_DYNAMIC_ARRAY *a_arr,
         if (array_sizes)
         {
           temp= (json_path_step_t*)(b_arr->buffer)+1;
-          value_ptr= (int*)mem_root_dynamic_array_get_val(array_sizes,
-                                                          b-temp);
+          value_ptr= ((int*)array_sizes->buffer)+(b-temp);
 
           corrected_n_item_a= a->n_item < 0 ?
                                 ((value_ptr ? *value_ptr : 0) + a->n_item) :
@@ -221,8 +217,7 @@ int json_path_parts_compare(const MEM_ROOT_DYNAMIC_ARRAY *a_arr,
           if (array_sizes)
           {
             temp= (json_path_step_t*)(b_arr->buffer)+1;
-            value_ptr= (int*)mem_root_dynamic_array_get_val(array_sizes,
-                                                            b-temp);
+             value_ptr= ((int*)array_sizes->buffer)+(b-temp);
             corrected_n_item_end_a= a->n_item_end < 0 ?
                                     ((value_ptr ? *value_ptr : 0) + a->n_item_end) :
                                     a->n_item_end;
@@ -260,20 +255,14 @@ int json_path_parts_compare(const MEM_ROOT_DYNAMIC_ARRAY *a_arr,
 step_failed:
     if (!(a->type & JSON_PATH_DOUBLE_WILD))
       return -1;
-     b= (json_path_step_t*)
-           mem_root_dynamic_array_increment((MEM_ROOT_DYNAMIC_ARRAY*)b_arr,
-                                            (uchar*)b, 1);
+    b++;
     continue;
 
 step_fits:
-    b= (json_path_step_t*)
-         mem_root_dynamic_array_increment((MEM_ROOT_DYNAMIC_ARRAY*)b_arr,
-                                          (uchar*)b, 1);
+   b++;
     if (!(a->type & JSON_PATH_DOUBLE_WILD))
     {
-      a= (json_path_step_t*)
-          mem_root_dynamic_array_increment((MEM_ROOT_DYNAMIC_ARRAY*)a_arr,
-                                           (uchar*)a, 1);
+     a++;
       continue;
     }
 
@@ -291,9 +280,7 @@ step_fits:
 step_fits_autowrap:
     if (!(a->type & JSON_PATH_DOUBLE_WILD))
     {
-       a= (json_path_step_t*)
-            mem_root_dynamic_array_increment((MEM_ROOT_DYNAMIC_ARRAY*)a_arr,
-                                             (uchar*)a, 1);
+       a++;
       continue;
     }
 
@@ -1960,7 +1947,7 @@ longlong Item_func_json_contains_path::val_int()
                     (mem_root_dynamic_array_get_val(&p.steps, 0));
     int n_path= arg_count - 2, value= 0, *value_ptr= NULL;
 
-    value_ptr= (int*)mem_root_dynamic_array_get_val(&json_depth_array,
+    value_ptr= (int*)mem_root_dynamic_array_resize_and_get_val(&json_depth_array,
                                                     p.last_step_idx);
     if (has_negative_path && je.value_type == JSON_VALUE_ARRAY &&
         (json_skip_array_and_count(&je,
@@ -2062,7 +2049,7 @@ bool Item_func_json_contains_path::val_bool()
   {
     int n_path= arg_count - 2, value= 0, *value_ptr= NULL;
 
-    value_ptr= (int*)mem_root_dynamic_array_get_val(&json_depth_array,
+    value_ptr= (int*)mem_root_dynamic_array_resize_and_get_val(&json_depth_array,
                                                     p.last_step_idx);
     if (has_negative_path && je.value_type == JSON_VALUE_ARRAY &&
         (json_skip_array_and_count(&je,
@@ -3720,7 +3707,7 @@ String *Item_func_json_insert::val_str(String *str)
       goto js_error;
 
     lp= (json_path_step_t*)
-        (mem_root_dynamic_array_get_val(&c_path->p.steps,
+        (mem_root_dynamic_array_resize_and_get_val(&c_path->p.steps,
                                         c_path->p.last_step_idx+1));
     if (lp->type & JSON_PATH_ARRAY)
     {
@@ -4020,7 +4007,7 @@ String *Item_func_json_remove::val_str(String *str)
       goto js_error;
 
     lp= (json_path_step_t*)
-            (mem_root_dynamic_array_get_val(&c_path->p.steps,
+            (mem_root_dynamic_array_resize_and_get_val(&c_path->p.steps,
                                             c_path->p.last_step_idx+1));
 
     if (lp->type & JSON_PATH_ARRAY)
