@@ -1,0 +1,882 @@
+#
+# MDEV-20022 sql_mode="oracle" does not support TO_NUMBER() function
+#
+SELECT to_number('', '');
+to_number('', '')
+NULL
+SELECT to_number(1, '');
+to_number(1, '')
+NULL
+SELECT to_number(1, 'B');
+to_number(1, 'B')
+NULL
+SELECT to_number(1, '$');
+to_number(1, '$')
+NULL
+SELECT to_number(1, 'B$');
+to_number(1, 'B$')
+NULL
+SELECT to_number(1, '$B');
+to_number(1, '$B')
+NULL
+#
+# 'MI' and 'PR' alone are allowed (with an optional FM prefix)
+#
+SELECT to_number(1, 'MI');
+to_number(1, 'MI')
+1
+SELECT to_number(1, 'PR');
+to_number(1, 'PR')
+1
+SELECT to_number(1, 'FMMI');
+to_number(1, 'FMMI')
+1
+SELECT to_number(1, 'FMPR');
+to_number(1, 'FMPR')
+1
+# Multiple dollar or B signs are not allowed
+SELECT to_number(0, '99$99$');
+ERROR HY000: Incorrect <number format> value: '' for function to_number
+SELECT to_number(0, '$9999$');
+ERROR HY000: Incorrect <number format> value: '$9999$' for function to_number
+SELECT to_number(0, '$9.99$');
+ERROR HY000: Incorrect <number format> value: '$9.99$' for function to_number
+SELECT to_number(0, '9$9.9$99EEEE');
+ERROR HY000: Incorrect <number format> value: '9$9.9$99EEEE' for function to_number
+SELECT to_number(0, '99B99B');
+ERROR HY000: Incorrect <number format> value: '' for function to_number
+SELECT to_number(0, 'B99B99B');
+ERROR HY000: Incorrect <number format> value: '' for function to_number
+SELECT to_number(0, 'B999B');
+ERROR HY000: Incorrect <number format> value: 'B999B' for function to_number
+SELECT to_number(0, 'B9.99B');
+ERROR HY000: Incorrect <number format> value: 'B9.99B' for function to_number
+SELECT to_number(0, '9B9.9B99EEEE');
+ERROR HY000: Incorrect <number format> value: '9B9.9B99EEEE' for function to_number
+SELECT to_number(0, '.9$9BB$0B');
+ERROR HY000: Incorrect <number format> value: '$0B' for function to_number
+SELECT to_number(0, '.0$0BB$9B');
+ERROR HY000: Incorrect <number format> value: '$9B' for function to_number
+# Comma and G cannot co-exist
+SELECT to_number(1, '9G9,9G9');
+ERROR HY000: Incorrect <number format> value: '9G9' for function to_number
+SELECT to_number(1, '9,9G9,9');
+ERROR HY000: Incorrect <number format> value: '9,9' for function to_number
+SELECT to_number(1, '0G0,0G0');
+ERROR HY000: Incorrect <number format> value: '0G0' for function to_number
+SELECT to_number(1, '0,0G0,0');
+ERROR HY000: Incorrect <number format> value: '0,0' for function to_number
+#
+# Dollar and C,L,U cannot co-exist
+#
+SELECT to_number(1, '$C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, '$L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, '$U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, '$C99');
+ERROR HY000: Incorrect <number format> value: 'C99' for function to_number
+SELECT to_number(1, '$L99');
+ERROR HY000: Incorrect <number format> value: 'L99' for function to_number
+SELECT to_number(1, '$U99');
+ERROR HY000: Incorrect <number format> value: 'U99' for function to_number
+SELECT to_number(1, '0$C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, '0$L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, '0$U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, '9$C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, '9$L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, '9$U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, 'C0$');
+ERROR HY000: Incorrect <number format> value: '0$' for function to_number
+SELECT to_number(1, 'L0$');
+ERROR HY000: Incorrect <number format> value: '0$' for function to_number
+SELECT to_number(1, 'U0$');
+ERROR HY000: Incorrect <number format> value: '0$' for function to_number
+SELECT to_number(1, '.$C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, '.$L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, '.$U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, 'D$C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, 'D$L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, 'D$U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, 'V$C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, 'V$L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, 'V$U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, '$.C');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, '$.L');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, '$.U');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+SELECT to_number(1, '$DC');
+ERROR HY000: Incorrect <number format> value: 'C' for function to_number
+SELECT to_number(1, '$DL');
+ERROR HY000: Incorrect <number format> value: 'L' for function to_number
+SELECT to_number(1, '$DU');
+ERROR HY000: Incorrect <number format> value: 'U' for function to_number
+#
+# Integer_with_group
+#
+SELECT to_number(1, 'x999');
+ERROR HY000: Incorrect <number format> value: '999' for function to_number
+SELECT to_number(1, '999x');
+ERROR HY000: Incorrect <number format> value: 'x' for function to_number
+# Correct formats
+SELECT to_number(1, '999');
+to_number(1, '999')
+1
+SELECT to_number(1, '$99');
+to_number(1, '$99')
+1
+SELECT to_number(1, '9$9');
+to_number(1, '9$9')
+1
+SELECT to_number(1, '99$');
+to_number(1, '99$')
+1
+SELECT to_number(1, 'B99');
+to_number(1, 'B99')
+1
+SELECT to_number(1, '9B9');
+to_number(1, '9B9')
+1
+SELECT to_number(1, '99B');
+to_number(1, '99B')
+1
+SELECT to_number(1, 'B$9');
+to_number(1, 'B$9')
+1
+SELECT to_number(1, '9B$');
+to_number(1, '9B$')
+1
+SELECT to_number(1, '$B9');
+to_number(1, '$B9')
+1
+SELECT to_number(1, '9$B');
+to_number(1, '9$B')
+1
+SELECT to_number(1, '9,9,9,9');
+to_number(1, '9,9,9,9')
+1
+SELECT to_number(1, '9G9G9G9');
+to_number(1, '9G9G9G9')
+1
+SELECT to_number(1, '0000');
+to_number(1, '0000')
+1
+SELECT to_number(1, '0,0,0,0');
+to_number(1, '0,0,0,0')
+1
+SELECT to_number(1, '0G0G0G0');
+to_number(1, '0G0G0G0')
+1
+SELECT to_number(1, '00009999');
+to_number(1, '00009999')
+1
+SELECT to_number(1, '0,0,0,0,9,9,9,9');
+to_number(1, '0,0,0,0,9,9,9,9')
+1
+SELECT to_number(1, '0G0G0G0G9G9G9G9');
+to_number(1, '0G0G0G0G9G9G9G9')
+1
+SELECT to_number(1, '99990000');
+to_number(1, '99990000')
+1
+SELECT to_number(1, '9,9,9,9,0,0,0,0');
+to_number(1, '9,9,9,9,0,0,0,0')
+1
+SELECT to_number(1, '9G9G9G9G0G0G0G0');
+to_number(1, '9G9G9G9G0G0G0G0')
+1
+#
+# decimal_with_group_pDVCLU 1: integer_with_group \[ fraction_pDVCLU \]
+#
+SELECT to_number(1, '9999.');
+to_number(1, '9999.')
+1
+SELECT to_number(1, '9999.9999');
+to_number(1, '9999.9999')
+1
+SELECT to_number(1, '9999.99990000');
+to_number(1, '9999.99990000')
+1
+SELECT to_number(1, '9999.00009999');
+to_number(1, '9999.00009999')
+1
+SELECT to_number(1, '9999.');
+to_number(1, '9999.')
+1
+SELECT to_number(1, '9999.9999');
+to_number(1, '9999.9999')
+1
+SELECT to_number(1, '9999.99990000');
+to_number(1, '9999.99990000')
+1
+SELECT to_number(1, '9999.00009999');
+to_number(1, '9999.00009999')
+1
+#
+# decimal_with_group_pDVCLU 2: fraction_pDVCLU
+#
+SELECT to_number(1, '.');
+to_number(1, '.')
+1
+SELECT to_number(1, '.9999');
+to_number(1, '.9999')
+1
+SELECT to_number(1, '.99990000');
+to_number(1, '.99990000')
+1
+SELECT to_number(1, '.0000');
+to_number(1, '.0000')
+1
+SELECT to_number(1, '.00009999');
+to_number(1, '.00009999')
+1
+SELECT to_number(1, '.9$9B');
+to_number(1, '.9$9B')
+1
+SELECT to_number(1, '.0$0B');
+to_number(1, '.0$0B')
+1
+#
+# Zeros_or_nines_opt_approximate_tail_pDV
+#
+SELECT to_number(1, 'C0EEEE');
+to_number(1, 'C0EEEE')
+1
+SELECT to_number(1, 'L0EEEE');
+to_number(1, 'L0EEEE')
+1
+SELECT to_number(1, 'U0EEEE');
+to_number(1, 'U0EEEE')
+1
+SELECT to_number(1, 'C9EEEE');
+to_number(1, 'C9EEEE')
+1
+SELECT to_number(1, 'L9EEEE');
+to_number(1, 'L9EEEE')
+1
+SELECT to_number(1, 'U9EEEE');
+to_number(1, 'U9EEEE')
+1
+#
+# number1: decimal_flags zeros_or_nines \[ approximate_tail_pDVCLU \] -- #2a
+# number1: decimal_flags                \[ fraction_pDVCLU \]         -- #2b
+#
+SELECT to_number(1, '$0EEEE');
+to_number(1, '$0EEEE')
+1
+SELECT to_number(1, 'B0EEEE');
+to_number(1, 'B0EEEE')
+1
+SELECT to_number(1, '$9EEEE');
+to_number(1, '$9EEEE')
+1
+SELECT to_number(1, 'B9EEEE');
+to_number(1, 'B9EEEE')
+1
+SELECT to_number(1, '$0.EEEE');
+to_number(1, '$0.EEEE')
+1
+SELECT to_number(1, 'B0.EEEE');
+to_number(1, 'B0.EEEE')
+1
+SELECT to_number(1, '$9.EEEE');
+to_number(1, '$9.EEEE')
+1
+SELECT to_number(1, 'B9.EEEE');
+to_number(1, 'B9.EEEE')
+1
+SELECT to_number(1, '$0.9EEEE');
+to_number(1, '$0.9EEEE')
+1
+SELECT to_number(1, 'B0.9EEEE');
+to_number(1, 'B0.9EEEE')
+1
+SELECT to_number(1, '$9.9EEEE');
+to_number(1, '$9.9EEEE')
+1
+SELECT to_number(1, 'B9.9EEEE');
+to_number(1, 'B9.9EEEE')
+1
+SELECT to_number(1, '$.');
+to_number(1, '$.')
+1
+SELECT to_number(1, 'B.');
+to_number(1, 'B.')
+1
+SELECT to_number(1, '$.');
+to_number(1, '$.')
+1
+SELECT to_number(1, 'B.');
+to_number(1, 'B.')
+1
+SELECT to_number(1, '$.9');
+to_number(1, '$.9')
+1
+SELECT to_number(1, 'B.9');
+to_number(1, 'B.9')
+1
+SELECT to_number(1, '$.9');
+to_number(1, '$.9')
+1
+SELECT to_number(1, 'B.9');
+to_number(1, 'B.9')
+1
+#
+# numeric_tail_pDVCLU: decimal_with_group_pDVCLU \[ EEEE \]\
+#                    | \[ EEEE \]
+#
+# EEEE without integer digits is not allowed
+SELECT to_number (1, '.EEEE');
+ERROR HY000: Incorrect <number format> value: 'EEEE' for function to_number
+SELECT to_number (1, '.999EEEE');
+ERROR HY000: Incorrect <number format> value: 'EEEE' for function to_number
+SELECT to_number (1, '.9$9EEEE');
+ERROR HY000: Incorrect <number format> value: 'EEEE' for function to_number
+SELECT to_number (1, '.9B9EEEE');
+ERROR HY000: Incorrect <number format> value: 'EEEE' for function to_number
+# Correct formats
+SELECT to_number (1, '999EEEE');
+to_number (1, '999EEEE')
+1
+SELECT to_number (1, '999.EEEE');
+to_number (1, '999.EEEE')
+1
+SELECT to_number (1, '999.9999EEEE');
+to_number (1, '999.9999EEEE')
+1
+SELECT to_number (1, '9$9EEEE');
+to_number (1, '9$9EEEE')
+1
+SELECT to_number (1, '9$9.EEEE');
+to_number (1, '9$9.EEEE')
+1
+SELECT to_number (1, '9B9EEEE');
+to_number (1, '9B9EEEE')
+1
+SELECT to_number (1, '9B9.EEEE');
+to_number (1, '9B9.EEEE')
+1
+#
+# number0: zeros \[ numeric_tail_pDVCLU \]
+# numeric_tail_pDVCLU: decimal_with_group_pDVCLU \[ EEEE \]
+#                    | EEEE
+#
+CREATE TABLE t1 (fmt VARCHAR(64));
+INSERT INTO t1 VALUES
+('0.999'),
+('000.999'),
+('000999.999'),
+('00090909.999');
+SELECT to_number(1, fmt), fmt FROM t1;
+to_number(1, fmt)	fmt
+1	0.999
+1	000.999
+1	000999.999
+1	00090909.999
+SELECT to_number(1, @fmt:=REPLACE(fmt,'.','D')), @fmt FROM t1;
+to_number(1, @fmt:=REPLACE(fmt,'.','D'))	@fmt
+1	0D999
+1	000D999
+1	000999D999
+1	00090909D999
+SELECT to_number(1, @fmt:=REPLACE(fmt,'.','V')), @fmt FROM t1;
+to_number(1, @fmt:=REPLACE(fmt,'.','V'))	@fmt
+1	0V999
+1	000V999
+1	000999V999
+1	00090909V999
+SELECT to_number(1, @fmt:=REPLACE(fmt,'.','C')), @fmt FROM t1;
+to_number(1, @fmt:=REPLACE(fmt,'.','C'))	@fmt
+1	0C999
+1	000C999
+1	000999C999
+1	00090909C999
+SELECT to_number(1, @fmt:=REPLACE(fmt,'.','L')), @fmt FROM t1;
+to_number(1, @fmt:=REPLACE(fmt,'.','L'))	@fmt
+1	0L999
+1	000L999
+1	000999L999
+1	00090909L999
+SELECT to_number(1, @fmt:=CONCAT(fmt,'EEEE')), @fmt FROM t1;
+to_number(1, @fmt:=CONCAT(fmt,'EEEE'))	@fmt
+1	0.999EEEE
+1	000.999EEEE
+1	000999.999EEEE
+1	00090909.999EEEE
+SELECT to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','D'),'EEEE')), @fmt FROM t1;
+to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','D'),'EEEE'))	@fmt
+1	0D999EEEE
+1	000D999EEEE
+1	000999D999EEEE
+1	00090909D999EEEE
+SELECT to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','V'),'EEEE')), @fmt FROM t1;
+to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','V'),'EEEE'))	@fmt
+1	0V999EEEE
+1	000V999EEEE
+1	000999V999EEEE
+1	00090909V999EEEE
+SELECT to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','C'),'EEEE')), @fmt FROM t1;
+to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','C'),'EEEE'))	@fmt
+1	0C999EEEE
+1	000C999EEEE
+1	000999C999EEEE
+1	00090909C999EEEE
+SELECT to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','L'),'EEEE')), @fmt FROM t1;
+to_number(1, @fmt:=CONCAT(REPLACE(fmt,'.','L'),'EEEE'))	@fmt
+1	0L999EEEE
+1	000L999EEEE
+1	000999L999EEEE
+1	00090909L999EEEE
+DROP TABLE t1;
+SELECT to_number(1, '00EEEE');
+to_number(1, '00EEEE')
+1
+#
+# number1: decimal_flags \[ fraction_pDVCLU \]  -- branch #2b
+#
+SELECT to_number(1, '$EEEE');
+ERROR HY000: Incorrect <number format> value: 'EEEE' for function to_number
+SELECT to_number(1, 'BEEEE');
+ERROR HY000: Incorrect <number format> value: 'EEEE' for function to_number
+SELECT to_number(1, 'SB');
+to_number(1, 'SB')
+1
+SELECT to_number(1, 'S$');
+to_number(1, 'S$')
+1
+SELECT to_number(1, 'SB$');
+to_number(1, 'SB$')
+1
+SELECT to_number(1, 'S$B');
+to_number(1, 'S$B')
+1
+SELECT to_number(1, 'BS');
+to_number(1, 'BS')
+1
+SELECT to_number(1, 'BMI');
+to_number(1, 'BMI')
+1
+SELECT to_number(1, 'BPR');
+to_number(1, 'BPR')
+1
+SELECT to_number(1, '$S');
+to_number(1, '$S')
+1
+SELECT to_number(1, '$MI');
+to_number(1, '$MI')
+1
+SELECT to_number(1, '$PR');
+to_number(1, '$PR')
+1
+SELECT to_number(1, 'BC');
+to_number(1, 'BC')
+1
+SELECT to_number(1, 'BL');
+to_number(1, 'BL')
+1
+SELECT to_number(1, 'BU');
+to_number(1, 'BU')
+1
+SELECT to_number(1, 'BC99');
+to_number(1, 'BC99')
+1
+SELECT to_number(1, 'BL99');
+to_number(1, 'BL99')
+1
+SELECT to_number(1, 'BU99');
+to_number(1, 'BU99')
+1
+SELECT to_number(1, 'BV');
+to_number(1, 'BV')
+1
+SELECT to_number(1, 'BV99');
+to_number(1, 'BV99')
+1
+SELECT to_number(1, '$V');
+to_number(1, '$V')
+1
+SELECT to_number(1, '$V99');
+to_number(1, '$V99')
+1
+SELECT to_number(1, 'B.');
+to_number(1, 'B.')
+1
+SELECT to_number(1, 'BD');
+to_number(1, 'BD')
+1
+SELECT to_number(1, 'B.99');
+to_number(1, 'B.99')
+1
+SELECT to_number(1, 'BD99');
+to_number(1, 'BD99')
+1
+SELECT to_number(1, '$.');
+to_number(1, '$.')
+1
+SELECT to_number(1, '$D');
+to_number(1, '$D')
+1
+SELECT to_number(1, '$.99');
+to_number(1, '$.99')
+1
+SELECT to_number(1, '$D99');
+to_number(1, '$D99')
+1
+#
+# number1: positional_currency     zeros_or_nines \[ approximate_tail_pDV \] -- #3a
+# number1: positional_currency 'B' zeros_or_nines \[ approximate_tail_pDV \] -- #3b
+# number1: positional_currency 'B' \[ fraction_pDV // no EEEE?\]  -- #3c
+# number1: positional_currency \[ fraction_pDV \] -- #3d
+#
+SELECT to_number(1, 'CB,999');
+ERROR HY000: Incorrect <number format> value: ',999' for function to_number
+SELECT to_number(1, 'CBG999');
+ERROR HY000: Incorrect <number format> value: 'G999' for function to_number
+SELECT to_number(1, 'C999');
+to_number(1, 'C999')
+1
+SELECT to_number(1, 'C000');
+to_number(1, 'C000')
+1
+SELECT to_number(1, 'CB999');
+to_number(1, 'CB999')
+1
+SELECT to_number(1, 'CB000');
+to_number(1, 'CB000')
+1
+SELECT to_number(1, 'C');
+to_number(1, 'C')
+1
+SELECT to_number(1, 'C.');
+to_number(1, 'C.')
+1
+SELECT to_number(1, 'CD');
+to_number(1, 'CD')
+1
+SELECT to_number(1, 'CV');
+to_number(1, 'CV')
+1
+SELECT to_number(1, 'C.99');
+to_number(1, 'C.99')
+1
+SELECT to_number(1, 'CD99');
+to_number(1, 'CD99')
+1
+SELECT to_number(1, 'CV99');
+to_number(1, 'CV99')
+1
+SELECT to_number(1, 'CB.999');
+to_number(1, 'CB.999')
+1
+SELECT to_number(1, 'CBD999');
+to_number(1, 'CBD999')
+1
+SELECT to_number(1, 'CB');
+to_number(1, 'CB')
+1
+SELECT to_number(1, 'L999');
+to_number(1, 'L999')
+1
+SELECT to_number(1, 'L000');
+to_number(1, 'L000')
+1
+SELECT to_number(1, 'LB999');
+to_number(1, 'LB999')
+1
+SELECT to_number(1, 'LB000');
+to_number(1, 'LB000')
+1
+SELECT to_number(1, 'L');
+to_number(1, 'L')
+1
+SELECT to_number(1, 'L.');
+to_number(1, 'L.')
+1
+SELECT to_number(1, 'LD');
+to_number(1, 'LD')
+1
+SELECT to_number(1, 'LV');
+to_number(1, 'LV')
+1
+SELECT to_number(1, 'L.99');
+to_number(1, 'L.99')
+1
+SELECT to_number(1, 'LD99');
+to_number(1, 'LD99')
+1
+SELECT to_number(1, 'LV99');
+to_number(1, 'LV99')
+1
+SELECT to_number(1, 'LB.999');
+to_number(1, 'LB.999')
+1
+SELECT to_number(1, 'LBD999');
+to_number(1, 'LBD999')
+1
+SELECT to_number(1, 'LB');
+to_number(1, 'LB')
+1
+SELECT to_number(1, 'U999');
+to_number(1, 'U999')
+1
+SELECT to_number(1, 'U000');
+to_number(1, 'U000')
+1
+SELECT to_number(1, 'UB999');
+to_number(1, 'UB999')
+1
+SELECT to_number(1, 'UB000');
+to_number(1, 'UB000')
+1
+SELECT to_number(1, 'U');
+to_number(1, 'U')
+1
+SELECT to_number(1, 'U.');
+to_number(1, 'U.')
+1
+SELECT to_number(1, 'UD');
+to_number(1, 'UD')
+1
+SELECT to_number(1, 'UV');
+to_number(1, 'UV')
+1
+SELECT to_number(1, 'U.99');
+to_number(1, 'U.99')
+1
+SELECT to_number(1, 'UD99');
+to_number(1, 'UD99')
+1
+SELECT to_number(1, 'UV99');
+to_number(1, 'UV99')
+1
+SELECT to_number(1, 'UB.999');
+to_number(1, 'UB.999')
+1
+SELECT to_number(1, 'UBD999');
+to_number(1, 'UBD999')
+1
+SELECT to_number(1, 'UB');
+to_number(1, 'UB')
+1
+#
+# format_without_prefix_sign: xchain
+#
+SELECT to_number(1, 'X');
+to_number(1, 'X')
+1
+SELECT to_number(1, 'XX');
+to_number(1, 'XX')
+1
+SELECT to_number(1, 'XXX');
+to_number(1, 'XXX')
+1
+SELECT to_number(1, 'XXXX');
+to_number(1, 'XXXX')
+1
+SELECT to_number(1, 'XXXXX');
+to_number(1, 'XXXXX')
+1
+SELECT to_number(1, 'XXXXXX');
+to_number(1, 'XXXXXX')
+1
+#
+# format_without_prefix_sign: zeros xchain
+#
+SELECT to_number(1, '00X');
+to_number(1, '00X')
+1
+SELECT to_number(1, '00XX');
+to_number(1, '00XX')
+1
+SELECT to_number(1, '00XXX');
+to_number(1, '00XXX')
+1
+SELECT to_number(1, '00XXXX');
+to_number(1, '00XXXX')
+1
+SELECT to_number(1, '00XXXXX');
+to_number(1, '00XXXXX')
+1
+SELECT to_number(1, '00XXXXXX');
+to_number(1, '00XXXXXX')
+1
+#
+# format_without_prefix_sign:
+#   zeros \[ numeric_tail_pDVCLU \] \[ postfix_sign \]
+#
+SELECT to_number(1, '00S');
+to_number(1, '00S')
+1
+SELECT to_number(1, '00MI');
+to_number(1, '00MI')
+1
+SELECT to_number(1, '00PR');
+to_number(1, '00PR')
+1
+#
+# format_without_prefix_sign: number1 \[ postfix_sign \]
+#
+SELECT to_number(1, '99S');
+to_number(1, '99S')
+1
+SELECT to_number(1, '99MI');
+to_number(1, '99MI')
+1
+SELECT to_number(1, '99PR');
+to_number(1, '99PR')
+1
+#
+# format_without_prefix_sign: format_TM_signature
+#
+SELECT to_number(1, 'TM');
+to_number(1, 'TM')
+1
+SELECT to_number(1, 'TM9');
+to_number(1, 'TM9')
+1
+SELECT to_number(1, 'TME');
+to_number(1, 'TME')
+1
+#
+# format#2: prefix_with_sign \[ format_with_prefix_sign \]
+#
+SELECT to_number(1, 'S');
+to_number(1, 'S')
+1
+SELECT to_number(1, 'S00');
+to_number(1, 'S00')
+1
+SELECT to_number(1, 'S99');
+to_number(1, 'S99')
+1
+SELECT to_number(1, 'S99');
+to_number(1, 'S99')
+1
+SELECT to_number(1, 'FMS');
+to_number(1, 'FMS')
+1
+SELECT to_number(1, 'FMS00');
+to_number(1, 'FMS00')
+1
+SELECT to_number(1, 'FMS99');
+to_number(1, 'FMS99')
+1
+SELECT to_number(1, 'FMS99');
+to_number(1, 'FMS99')
+1
+SELECT to_number(1, 'SFM');
+to_number(1, 'SFM')
+1
+SELECT to_number(1, 'SFM00');
+to_number(1, 'SFM00')
+1
+SELECT to_number(1, 'SFM99');
+to_number(1, 'SFM99')
+1
+SELECT to_number(1, 'SFM99');
+to_number(1, 'SFM99')
+1
+SELECT to_number(1, 'S00.99EEEE');
+to_number(1, 'S00.99EEEE')
+1
+SELECT to_number(1, 'S99.99EEEE');
+to_number(1, 'S99.99EEEE')
+1
+SELECT to_number(1, 'S99.99EEEE');
+to_number(1, 'S99.99EEEE')
+1
+SELECT to_number(1, 'S00.99C');
+to_number(1, 'S00.99C')
+1
+SELECT to_number(1, 'S99.99L');
+to_number(1, 'S99.99L')
+1
+SELECT to_number(1, 'S99.99U');
+to_number(1, 'S99.99U')
+1
+SELECT to_number(1, 'S00D99C');
+to_number(1, 'S00D99C')
+1
+SELECT to_number(1, 'S99D99L');
+to_number(1, 'S99D99L')
+1
+SELECT to_number(1, 'S99D99U');
+to_number(1, 'S99D99U')
+1
+#
+# TODO: the following formats are not supported in Oracle.
+# However, it works if change C/L/U to dollar sign:
+#
+SELECT to_number(1, 'S00.99CEEEE');
+to_number(1, 'S00.99CEEEE')
+1
+SELECT to_number(1, 'S99.99LEEEE');
+to_number(1, 'S99.99LEEEE')
+1
+SELECT to_number(1, 'S99.99UEEEE');
+to_number(1, 'S99.99UEEEE')
+1
+#
+# format#3: prefix_without_sign \[ format_without_prefix_sign \]
+#
+SELECT to_number(1, 'FM');
+to_number(1, 'FM')
+1
+SELECT to_number(1, 'FM00S');
+to_number(1, 'FM00S')
+1
+SELECT to_number(1, 'FM99S');
+to_number(1, 'FM99S')
+1
+SELECT to_number(1, 'FM99S');
+to_number(1, 'FM99S')
+1
+SELECT to_number(1, 'FM00.99S');
+to_number(1, 'FM00.99S')
+1
+SELECT to_number(1, 'FM99.99S');
+to_number(1, 'FM99.99S')
+1
+SELECT to_number(1, 'FM99.99S');
+to_number(1, 'FM99.99S')
+1
+SELECT to_number(1, 'FM00.99EEEES');
+to_number(1, 'FM00.99EEEES')
+1
+SELECT to_number(1, 'FM99.99EEEES');
+to_number(1, 'FM99.99EEEES')
+1
+SELECT to_number(1, 'FM99.99EEEES');
+to_number(1, 'FM99.99EEEES')
+1
+#
+# Conversion
+#
+SELECT to_number('123,456,789','999,999,999') AS c1;
+c1
+123456789
+SELECT to_number('111,222,333,444,555','999,999,999,999,999') AS c1;
+c1
+111222333444555
+SELECT to_number('111,222,333,444,555,666,777,888,999',
+'999,999,999,999,999,999,999,999,999') AS c1;
+c1
+1.1122233344455566e26
