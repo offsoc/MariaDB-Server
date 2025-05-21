@@ -1387,6 +1387,17 @@ bool mysql_make_view(THD *thd, TABLE_SHARE *share, TABLE_LIST *table,
     table mem_root should be used here
   */
   DBUG_ASSERT(share->view_def != NULL);
+
+#ifdef PROTECT_STATEMENT_MEMROOT
+  if (thd->mem_root->flags & ROOT_FLAG_READ_ONLY)
+  {
+    /*
+      Recreating VIEW because of the new table,
+      trigger execution does new allocations.
+    */
+    thd->mem_root->flags&= ~ROOT_FLAG_READ_ONLY;
+  }
+#endif /* PROTECT_STATEMENT_MEMROOT */
   if ((result= share->view_def->parse((uchar*)table, thd->mem_root,
                                       view_parameters,
                                       required_view_parameters,
