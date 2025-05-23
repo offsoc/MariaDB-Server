@@ -32,23 +32,25 @@
 
 struct st_opt_hint_info opt_hint_info[]=
 {
-  {{STRING_WITH_LEN("BKA")}, true, false, false},
-  {{STRING_WITH_LEN("BNL")}, true, false, false},
-  {{STRING_WITH_LEN("ICP")}, true, false, false},
-  {{STRING_WITH_LEN("MRR")}, true, false, false},
-  {{STRING_WITH_LEN("NO_RANGE_OPTIMIZATION")}, true, false, false},
-  {{STRING_WITH_LEN("QB_NAME")}, false, false, false},
-  {{STRING_WITH_LEN("MAX_EXECUTION_TIME")}, false, true, false},
-  {{STRING_WITH_LEN("SEMIJOIN")}, false, true, false},
-  {{STRING_WITH_LEN("SUBQUERY")}, false, true, false},
-  {{STRING_WITH_LEN("JOIN_PREFIX")}, false, true, true},
-  {{STRING_WITH_LEN("JOIN_SUFFIX")}, false, true, true},
-  {{STRING_WITH_LEN("JOIN_ORDER")}, false, true, true},
-  {{STRING_WITH_LEN("JOIN_FIXED_ORDER")}, false, true, false},
-  {{STRING_WITH_LEN("INDEX")}, false, true, false},
-  {{STRING_WITH_LEN("JOIN_INDEX")}, false, true, false},
-  {{STRING_WITH_LEN("GROUP_INDEX")}, false, true, false},
-  {{STRING_WITH_LEN("ORDER_INDEX")}, false, true, false},
+  // hint_type                             check_upper   has_args     irregular
+  {{STRING_WITH_LEN("BKA")},                   true,      false,        false},
+  {{STRING_WITH_LEN("BNL")},                   true,      false,        false},
+  {{STRING_WITH_LEN("ICP")},                   true,      false,        false},
+  {{STRING_WITH_LEN("MRR")},                   true,      false,        false},
+  {{STRING_WITH_LEN("NO_RANGE_OPTIMIZATION")}, true,      false,        false},
+  {{STRING_WITH_LEN("QB_NAME")},               false,     false,        false},
+  {{STRING_WITH_LEN("MAX_EXECUTION_TIME")},    false,     true,         false},
+  {{STRING_WITH_LEN("SEMIJOIN")},              false,     true,         false},
+  {{STRING_WITH_LEN("SUBQUERY")},              false,     true,         false},
+  {{STRING_WITH_LEN("JOIN_PREFIX")},           false,     true,         true},
+  {{STRING_WITH_LEN("JOIN_SUFFIX")},           false,     true,         true},
+  {{STRING_WITH_LEN("JOIN_ORDER")},            false,     true,         true},
+  {{STRING_WITH_LEN("JOIN_FIXED_ORDER")},      false,     true,         false},
+  {{STRING_WITH_LEN("INDEX")},                 false,     true,         false},
+  {{STRING_WITH_LEN("JOIN_INDEX")},            false,     true,         false},
+  {{STRING_WITH_LEN("GROUP_INDEX")},           false,     true,         false},
+  {{STRING_WITH_LEN("ORDER_INDEX")},           false,     true,         false},
+  {{STRING_WITH_LEN("ROWID_FILTER")},          false,     false,        false}, // OLEGS: check_upper, has_args ?
   {null_clex_str, 0, 0, 0}
 };
 

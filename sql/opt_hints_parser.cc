@@ -127,6 +127,11 @@ Optimizer_hint_tokenizer::find_keyword(const LEX_CSTRING &str)
       return TokenID::keyword_GROUP_INDEX;
     break;
 
+  case 12:
+    if ("ROWID_FILTER"_Lex_ident_column.streq(str))
+      return TokenID::keyword_ROWID_FILTER;
+    break;
+
   case 13:
     if ("NO_JOIN_INDEX"_Lex_ident_column.streq(str))
       return TokenID::keyword_NO_JOIN_INDEX;
@@ -142,6 +147,8 @@ Optimizer_hint_tokenizer::find_keyword(const LEX_CSTRING &str)
   case 15:
     if ("MATERIALIZATION"_Lex_ident_column.streq(str))
       return TokenID::keyword_MATERIALIZATION;
+    if ("NO_ROWID_FILTER"_Lex_ident_column.streq(str))
+      return TokenID::keyword_NO_ROWID_FILTER;
     break;
 
   case 16:
@@ -494,6 +501,14 @@ bool Parser::Index_level_hint::resolve(Parse_context *pc) const
     break;
   case TokenID::keyword_NO_GROUP_INDEX:
     hint_type= GROUP_INDEX_HINT_ENUM;
+    hint_state= false;
+    break;
+  case TokenID::keyword_ROWID_FILTER:
+    hint_type= ROWID_FILTER_HINT_ENUM;
+    hint_state= true;
+    break;
+  case TokenID::keyword_NO_ROWID_FILTER:
+    hint_type= ROWID_FILTER_HINT_ENUM;
     hint_state= false;
     break;
   default:
