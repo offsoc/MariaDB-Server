@@ -1,0 +1,145 @@
+name: Build on Windows ARM64
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'bb-*'
+      - '[0-9]+.[0-9]+'
+      - '*wlad*'
+  pull_request:
+
+jobs:
+  build:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
+    runs-on: windows-11-arm
+
+    steps:
+      - name: Configure git
+        run: |
+          # We won't be able to successfully run mtr
+          # unless we configure autocrlf. sigh
+          git config --global core.autocrlf input
+
+      - uses: actions/checkout@v4
+
+      - name: Install bison
+        run: |
+          choco install winflexbison3 wixtoolset
+
+      - name: Build
+        run: |
+          # speedup checkout by excluding uninteresting modules
+          git config submodule.storage/columnstore/columnstore.update none
+          git config submodule.storage/maria/libmarias3.update none
+          git config submodule.storage/rocksdb/rocksdb.update none
+          git config submodule.wsrep-lib.update none
+          mkdir bld
+          cd bld
+          cmake .. -DWITH_SSL=bundled
+          cmake --build . --config RelWithDebinfo --verbose -- -m
+          cmake --build . --config RelWithDebInfo --target MSI
+
+      - name: Test MSI
+        shell: pwsh
+        run: |
+          # Find the MSI file
+          $msi = Get-ChildItem -Recurse -Filter *.msi -Path bld\win\packaging | Select-Object -First 1
+          if (-not $msi) {
+             Write-Error "No MSI file found in build directory"
+             exit 1
+          }
+          # Define install parameters
+          $msiPath = $msi.FullName
+          $installDir = "C:\mariadb"
+          $serviceName = "MariaDB"
+          $rootPassword = "b1ctUj5rcRSADLC"
+          $logPath = "$env:RUNNER_TEMP\msi-install.log"
+          # Install MSI
+          $installArgs = "/i `"$msiPath`" INSTALLDIR=`"$installDir`" SERVICENAME=$serviceName PASSWORD=$rootPassword /qn /norestart /l*v `"$logPath`""
+          echo "Installing MSI: $msiPath , args=$installArgs "
+          $process = Start-Process msiexec.exe -Wait -PassThru  -ArgumentList $installArgs
+          $exitCode = $process.ExitCode
+          if ($process.ExitCode -ne 0) {
+            Write-Error "MSI installation failed with exit code $exitCode"
+            echo "MSI Install Log"
+            Get-Content $logPath
+            echo "endgroup"
+            exit 1
+          }
+          # Wait for Windows service to reach "Running"
+          $maxAttempts = 30
+          $attempt = 0
+          while ($attempt -lt $maxAttempts) {
+             $status = (Get-Service -Name $serviceName).Status
+             if ($status -eq "Running") {
+               echo "Service $serviceName is running"
+               break
+            }
+            Start-Sleep -Seconds 1
+            $attempt++
+          }
+          if ($status -ne "Running") {
+            Write-Error "Service $serviceName did not start within timeout"
+            exit 1
+          }
+          $port = 3306
+          $maxAttempts = 30
+          $attempt = 0
+          $ready = $false
+          while ($attempt -lt $maxAttempts) {
+            $connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+            if ($connections) {
+              echo "Port $port is now listening"
+              $ready = $true
+              break
+            }
+            Start-Sleep -Seconds 1
+            $attempt++
+          }
+          if (-not $ready) {
+            Write-Error "Port $port did not start listening within timeout"
+            exit 1
+          }
+          $mysqlExe = Join-Path $installDir "bin\mysql.exe"
+          if (-Not (Test-Path $mysqlExe)) {
+            Write-Error "mysql.exe not found at $mysqlExe"
+            exit 1
+          }
+          & $mysqlExe -uroot "--password=$rootPassword" -e "show variables like '%version%'"
+          if ($LASTEXITCODE -ne 0) {
+             Write-Error "Smoke test failed"
+             exit 1
+          }
+          # Get product code for uninstall
+          $installer = New-Object -ComObject WindowsInstaller.Installer
+          # Open the MSI database in read-only mode (0 = read-only)
+          $view = $installer.OpenDatabase($msiPath, 0).OpenView("SELECT `Value` FROM `Property` WHERE `Property`='ProductCode'")
+          $view.Execute()
+          $productCode= $view.Fetch().StringData(1)
+
+          echo "Uninstalling product code: $productCode"
+          $uninstallArgs = "/x $productCode /qn /norestart"
+          Start-Process msiexec.exe -Wait -NoNewWindow -ArgumentList $uninstallArgs
+
+      - name: Test MTR
+        run: |
+          $env:PATH = "C:\Strawberry\perl\bin;$env:PATH;C:\Program Files (x86)\Windows Kits\10\Debuggers\arm64"
+          #Calculate parallel as 4 * number of processors
+          $parallel = 4 * [int]$env:NUMBER_OF_PROCESSORS
+          # Run mtr, skip unit.tzinfo
+          perl bld\mysql-test\mysql-test-run.pl --force --max-test-fail=10 --retry=2 --parallel=$parallel `
+            --testcase-timeout=10 --suite=main,unit --skip-test=unit.my_tzinfo `
+            --mysqld=--loose-innodb-flush-log-at-trx-commit=2
+
+      - name: Test MTR non-parallel
+        # tests that can't run in parallel
+        run: |
+          $env:PATH = "C:\Strawberry\perl\bin;$env:PATH;C:\Program Files (x86)\Windows Kits\10\Debuggers\arm64"
+          #Calculate parallel as 4 * number of processors
+          $parallel = 4 * [int]$env:NUMBER_OF_PROCESSORS
+          # Run mtr, skip unit.tzinfo
+          perl bld\mysql-test\mysql-test-run.pl --suite=main --force --max-test-fail=10 --retry=2 charset_client_win_utf8mb4 `
