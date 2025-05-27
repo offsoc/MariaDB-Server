@@ -42,7 +42,7 @@ jobs:
           cd bld
           cmake .. -DWITH_SSL=bundled
           cmake --build . --config RelWithDebinfo --verbose -- -m
-
+          .\unittest\mysys\RelWithDebInfo\crc32-t.exe
       - name: Test MTR
         run: |
           $env:PATH = "C:\Strawberry\perl\bin;$env:PATH;C:\Program Files (x86)\Windows Kits\10\Debuggers\arm64"
