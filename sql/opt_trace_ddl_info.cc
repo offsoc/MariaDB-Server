@@ -101,29 +101,30 @@ static bool dump_name_ddl_to_trace(THD *thd, DDL_Key *ddl_key, String *stmt,
     return true;
 
   escaped_stmt[act_escape_stmt_len]= 0;
-  ctx_wrapper.add("name", ddl_key->name);
+  ctx_wrapper.add("ddl", escaped_stmt);
   return false;
 }
 
-static void dump_stats_to_trace(THD *thd, TABLE_LIST *tbl,
-                                Json_writer_object &ctx_wrapper)
+static void dump_table_stats_to_trace(THD *thd, TABLE_LIST *tbl,
+                                      Json_writer_object &ctx_wrapper)
 {
-  ctx_wrapper.add("num_of_records", tbl->table->stat_records());
   TABLE *table= tbl->table;
-  if (table->key_info)
+  ctx_wrapper.add("num_of_records", tbl->table->stat_records());
+
+  if (!table->key_info)
+    return;
+
+  Json_writer_array indexes(thd, "indexes");
+  for (uint idx= 0; idx < table->s->keys; idx++)
   {
-    Json_writer_array indexes(thd, "indexes");
-    for (uint idx= 0; idx < table->s->keys; idx++)
+    KEY key= table->key_info[idx];
+    uint num_key_parts= key.user_defined_key_parts;
+    Json_writer_object index_wrapper(thd);
+    index_wrapper.add("index_name", key.name);
+    Json_writer_array rpk_wrapper(thd, "rec_per_key");
+    for (uint i= 0; i < num_key_parts; i++)
     {
-      KEY key= table->key_info[idx];
-      uint num_key_parts= key.user_defined_key_parts;
-      Json_writer_object index_wrapper(thd);
-      index_wrapper.add("index_name", key.name);
-      Json_writer_array rpk_wrapper(thd, "rec_per_key");
-      for (uint i= 0; i < num_key_parts; i++)
-      {
-        rpk_wrapper.add(key.actual_rec_per_key(i));
-      }
+      rpk_wrapper.add(key.actual_rec_per_key(i));
     }
   }
 }
@@ -250,7 +251,7 @@ bool store_tables_context_in_trace(THD *thd)
     }
 
     if (!tbl->is_view())
-      dump_stats_to_trace(thd, tbl, ctx_wrapper);
+      dump_table_stats_to_trace(thd, tbl, ctx_wrapper);
   }
   my_hash_free(&hash);
   return res;
