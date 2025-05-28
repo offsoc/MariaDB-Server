@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <my_attribute.h>
 
 #ifdef WIN32
 # include <io.h>
@@ -2989,6 +2990,8 @@ buffer_merge_dump_datavec(grn_ctx *ctx,
   GRN_OBJ_FIN(ctx, &buffer);
 }
 
+PRAGMA_DISABLE_CHECK_STACK_FRAME
+
 /* If dc doesn't have enough space, program may be crashed.
  * TODO: Support auto space extension or max size check.
  */
@@ -3314,6 +3317,8 @@ buffer_merge(grn_ctx *ctx, grn_ii *ii, uint32_t seg, grn_hash *h,
   return ctx->rc;
 }
 
+PRAGMA_REENABLE_CHECK_STACK_FRAME
+
 static void
 fake_map(grn_ctx *ctx, grn_io *io, grn_io_win *iw, void *addr, uint32_t seg, uint32_t size)
 {
@@ -3327,6 +3332,8 @@ fake_map(grn_ctx *ctx, grn_io *io, grn_io_win *iw, void *addr, uint32_t seg, uin
   iw->cached = 0;
   iw->addr = addr;
 }
+
+PRAGMA_DISABLE_CHECK_STACK_FRAME
 
 static grn_rc
 buffer_flush(grn_ctx *ctx, grn_ii *ii, uint32_t seg, grn_hash *h)
@@ -3459,6 +3466,8 @@ buffer_flush(grn_ctx *ctx, grn_ii *ii, uint32_t seg, grn_hash *h)
   }
   return ctx->rc;
 }
+
+PRAGMA_REENABLE_CHECK_STACK_FRAME
 
 void
 grn_ii_buffer_check(grn_ctx *ctx, grn_ii *ii, uint32_t seg)
@@ -3726,6 +3735,8 @@ array_update(grn_ctx *ctx, grn_ii *ii, uint32_t dls, buffer *db)
   }
 }
 
+PRAGMA_DISABLE_CHECK_STACK_FRAME
+
 static grn_rc
 buffer_split(grn_ctx *ctx, grn_ii *ii, uint32_t seg, grn_hash *h)
 {
@@ -3970,6 +3981,8 @@ buffer_split(grn_ctx *ctx, grn_ii *ii, uint32_t seg, grn_hash *h)
   }
   return ctx->rc;
 }
+
+PRAGMA_REENABLE_CHECK_STACK_FRAME
 
 #define SCALE_FACTOR 2048
 #define MAX_NTERMS   8192
@@ -4512,6 +4525,8 @@ grn_ii_get_disk_usage(grn_ctx *ctx, grn_ii *ii)
 #define BIT11_01(x) ((x >> 1) & 0x7ff)
 #define BIT31_12(x) (x >> 12)
 
+PRAGMA_DISABLE_CHECK_STACK_FRAME
+
 grn_rc
 grn_ii_update_one(grn_ctx *ctx, grn_ii *ii, grn_id tid, grn_ii_updspec *u, grn_hash *h)
 {
@@ -4784,6 +4799,7 @@ exit :
   return ctx->rc;
 }
 
+
 grn_rc
 grn_ii_delete_one(grn_ctx *ctx, grn_ii *ii, grn_id tid, grn_ii_updspec *u, grn_hash *h)
 {
@@ -4896,6 +4912,8 @@ exit :
   if (bs) { GRN_FREE(bs); }
   return ctx->rc;
 }
+
+PRAGMA_REENABLE_CHECK_STACK_FRAME
 
 #define CHUNK_USED    1
 #define BUFFER_USED   2
@@ -6294,6 +6312,8 @@ grn_uvector2updspecs(grn_ctx *ctx, grn_ii *ii, grn_id rid,
   }
 }
 
+PRAGMA_DISABLE_CHECK_STACK_FRAME
+
 grn_rc
 grn_ii_column_update(grn_ctx *ctx, grn_ii *ii, grn_id rid, unsigned int section,
                      grn_obj *oldvalue, grn_obj *newvalue, grn_obj *posting)
@@ -6612,6 +6632,8 @@ exit :
   if (new && new != newvalue) { grn_obj_close(ctx, new); }
   return ctx->rc;
 }
+
+PRAGMA_REENABLE_CHECK_STACK_FRAME
 
 /* token_info */
 
@@ -7916,6 +7938,8 @@ grn_ii_select_cursor_open(grn_ctx *ctx,
   return cursor;
 }
 
+PRAGMA_DISABLE_CHECK_STACK_FRAME
+
 static grn_ii_select_cursor_posting *
 grn_ii_select_cursor_next(grn_ctx *ctx,
                           grn_ii_select_cursor *cursor)
@@ -8082,6 +8106,9 @@ grn_ii_select_cursor_next(grn_ctx *ctx,
     }
   }
 }
+
+PRAGMA_REENABLE_CHECK_STACK_FRAME
+
 
 static void
 grn_ii_select_cursor_unshift(grn_ctx *ctx,
@@ -8526,6 +8553,8 @@ grn_ii_select_sequential_search(grn_ctx *ctx,
 }
 #endif
 
+PRAGMA_DISABLE_CHECK_STACK_FRAME
+
 grn_rc
 grn_ii_select(grn_ctx *ctx, grn_ii *ii,
               const char *string, unsigned int string_len,
@@ -8831,6 +8860,8 @@ exit :
 #endif /* DEBUG */
   return rc;
 }
+
+PRAGMA_REENABLE_CHECK_STACK_FRAME
 
 static uint32_t
 grn_ii_estimate_size_for_query_regexp(grn_ctx *ctx, grn_ii *ii,
