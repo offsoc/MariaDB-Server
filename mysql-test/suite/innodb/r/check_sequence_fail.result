@@ -1,0 +1,60 @@
+#
+# MDEV-36487 Fix ha_innobase::check() for sequences
+#
+call mtr.add_suppression("InnoDB: Table test/s2 contains 1 indexes .*");
+CREATE SEQUENCE s ENGINE=InnoDB;
+ALTER TABLE s SEQUENCE=0;
+FLUSH TABLES;
+CHECK TABLE s;
+Table	Op	Msg_type	Msg_text
+test.s	check	Warning	InnoDB: Sequence table test/s doesn't have NO ROLLBACK flag enabled.
+test.s	check	error	Corrupt
+DROP SEQUENCE s;
+CREATE SEQUENCE s ENGINE=InnoDB;
+CREATE TABLE s2 LIKE s;
+ALTER TABLE s2 sequence=0;
+INSERT INTO s2 VALUES (3,1,9223372036854775806,1,1,1000,0,0);
+ALTER TABLE s2 ADD INDEX idx(start_value);
+FLUSH TABLES;
+SET STATEMENT DEBUG_DBUG="+d,skip_no_rollback_check" FOR
+CHECK TABLE s2;
+Table	Op	Msg_type	Msg_text
+test.s2	check	Warning	InnoDB: Table test/s2 contains 1 indexes inside InnoDB, which is different from the number of indexes 0 defined in the MariaDB 
+test.s2	check	Warning	InnoDB: Sequence table test/s2 does have more than one indexes.
+test.s2	check	Warning	More than one row in the table
+test.s2	check	status	OK
+DROP SEQUENCE s;
+DROP SEQUENCE s2;
+CREATE SEQUENCE s ENGINE=InnoDB;
+CREATE TABLE s2 LIKE s;
+ALTER TABLE s2 sequence=0;
+INSERT INTO s2 VALUES (3,1,9223372036854775806,1,1,1000,0,0);
+DELETE FROM s2;
+InnoDB		0 transactions not purged
+FLUSH TABLES;
+SET STATEMENT DEBUG_DBUG="+d,skip_no_rollback_check" FOR
+CHECK TABLE s2;
+Table	Op	Msg_type	Msg_text
+test.s2	check	Warning	InnoDB: Should have only one record in sequence table test/s2. But it has 0 records.
+test.s2	check	Error	Fewer than one row in the table
+test.s2	check	error	Corrupt
+DROP SEQUENCE s;
+DROP SEQUENCE s2;
+CREATE SEQUENCE s ENGINE=InnoDB;
+CREATE TABLE s2 LIKE s;
+ALTER TABLE s2 sequence=0;
+DELETE FROM s2;
+InnoDB		0 transactions not purged
+connect  prevent_purge,localhost,root;
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+connection default;
+INSERT INTO s2 VALUES (3,1,9223372036854775806,1,1,1000,0,0);
+FLUSH TABLES;
+SET STATEMENT DEBUG_DBUG="+d,skip_no_rollback_check" FOR
+CHECK TABLE s2;
+Table	Op	Msg_type	Msg_text
+test.s2	check	Warning	InnoDB: Record in sequence table test/s2 is corrupted.
+test.s2	check	status	OK
+disconnect prevent_purge;
+DROP SEQUENCE s;
+DROP SEQUENCE s2;

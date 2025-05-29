@@ -1,0 +1,21 @@
+--source include/have_innodb.inc
+--echo #
+--echo # MDEV-36487  Fix ha_innobase::check() for sequences
+--echo #
+
+# Insert a row into a sequence table updates that row
+CREATE SEQUENCE s1 ENGINE=InnoDB;
+CHECK TABLE s1;
+
+--connect (prevent_purge,localhost,root)
+START TRANSACTION WITH CONSISTENT SNAPSHOT;
+
+--connection default
+INSERT INTO s1 VALUES (3,1,9223372036854775806,1,1,1000,0,0);
+SELECT * FROM s1;
+CHECK TABLE s1;
+--disable_ps2_protocol
+select nextval(s1);
+--enable_ps2_protocol
+--disconnect prevent_purge
+DROP SEQUENCE s1;
