@@ -1,5 +1,8 @@
 --echo # MDEV-18983: `@@rpl_semi_sync_master_wait_for_slave_count` feature test
+# A gotcha: The FLUSH GLOBAL STATUS statments in this test are also replicated.
 
+--source include/have_debug.inc
+--source include/have_debug_sync.inc
 --source include/have_binlog_format_mixed.inc # format-agnostic
 # The variable's default is 1 to match the behavior before this feature came.
 # Therefore, this test uses two slaves to prove that the variable took effect.
@@ -7,9 +10,32 @@
 --source include/rpl_init.inc
 
 
---echo # Case 1.1: Semi-Sync commits when both slaves ACKs
+--echo # Case 0: Semi-Sync commits only when both slaves ACKs
+# Simulate lag on one of the replicas
+--connection server_3
+SET @old_dbug= @@GLOBAL.debug_dbug;
+SET @@GLOBAL.debug_dbug= '+d,simulate_delay_semisync_slave_reply';
+
+# Send two transactions concurrently
+--connection server_1
+SET DEBUG_SYNC= 'semisync_got_reply SIGNAL wait WAIT_FOR continue';
 # Case 2.1 explicitly tests for a timeout, but this warning is also replicated
-CALL mtr.add_suppression('Timeout waiting for reply of binlog');
+--send CALL mtr.add_suppression('Timeout waiting for reply of binlog')
+  --connection default
+  SET DEBUG_SYNC= 'now WAIT_FOR wait';
+  SET DEBUG_SYNC= 'now SIGNAL continue';
+  --send CREATE TABLE t (a INT)
+
+    # Unblock lag for the first transcation on the first replica
+    --connection server_3
+    SET @@GLOBAL.debug_dbug= @old_dbug;
+    SET debug_sync= 'now SIGNAL io_thd_do_reply';
+    --connection server_1
+  --reap
+  --connection default
+--reap
+
+# Check status
 SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
 SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_get\_ack';
 --connection server_2
@@ -18,16 +44,18 @@ SHOW STATUS LIKE 'Rpl\_semi\_sync\_slave\_send\_ack';
 SHOW STATUS LIKE 'Rpl\_semi\_sync\_slave\_send\_ack';
 --connection server_1
 
---echo # Case 1.2: Lowering a high requirement unblocks waiting Semi-Sync
+--echo # Case 1: Lowering a high requirement unblocks the waiting Semi-Sync
 SET @@GLOBAL.rpl_semi_sync_master_wait_for_slave_count= 3;
---send CREATE TABLE t (a INT)
---connection default
-  --let $status_var= Rpl_semi_sync_master_get_ack
-  --let $status_var_value= 4
-  --source include/wait_for_status_var.inc
-  SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx'; # expect no change
+SET DEBUG_SYNC= 'semisync_got_reply SIGNAL wait WAIT_FOR continue EXECUTE 2';
+--send FLUSH GLOBAL STATUS
+  --connection default
+  # Wait for 2 *complete* ACK processings
+  SET DEBUG_SYNC= 'now WAIT_FOR wait';
+  SET DEBUG_SYNC= 'now SIGNAL continue WAIT_FOR wait';
+  SET DEBUG_SYNC= 'now SIGNAL continue';
+  SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx'; # expect 0
   SET @@GLOBAL.rpl_semi_sync_master_wait_for_slave_count= 2;
---connection server_1
+  --connection server_1
 --reap
 SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
 
@@ -35,28 +63,43 @@ SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
 --let $wait_no_slave= 0
 while ($wait_no_slave < 2)
 {
-  --echo # Matrix: wait_no_slave
+  --echo # Cases 2.x Matrix:
   --eval SET @@GLOBAL.rpl_semi_sync_master_wait_no_slave= $wait_no_slave
 
   --echo # Case 2.1: falls back to Async when the requirement is set too high
   SET @@GLOBAL.rpl_semi_sync_master_wait_for_slave_count= 3;
-  --send_eval INSERT INTO t VALUES (1$wait_no_slave)
-    --echo # Case 2.1.1: ... even when one of the slaves reconnects up-to-date
-    --connection default
-    --sync_slave_with_master server_2
+  FLUSH GLOBAL STATUS;
+  SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
+
+  # (?)
+  if ($wait_no_slave)
+  {
+    --echo # Case 2.2: Semi-Sync stays timed-out on an up-to-date reconnect
+    SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_status';
+    --connection server_3
     --source include/stop_slave.inc
     --source include/start_slave.inc
     --connection server_1
-  --reap
+    SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_status';
+  }
+
+  --echo # Case 2.3: stays Async as long as the requirement is not met
+  SET DEBUG_SYNC= 'semisync_got_reply SIGNAL wait WAIT_FOR continue';
+  --eval INSERT INTO t VALUES (3$wait_no_slave) # ask for ACK(s)
+  SET DEBUG_SYNC= 'now WAIT_FOR wait';
+  SET DEBUG_SYNC= 'now SIGNAL continue';
+  FLUSH GLOBAL STATUS; # check a new transaction
   SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
 
-  --echo # Case 2.2: stays Async as long as the requirement is not met
-  --eval INSERT INTO t VALUES (2$wait_no_slave)
-  SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
-
-  --echo # Case 2.3: returns to Semi-Sync when the requirement is set just right
+  --echo # Case 2.4: returns to Semi-Sync when the requirement is set just right
   SET @@GLOBAL.rpl_semi_sync_master_wait_for_slave_count= 2;
-  --eval INSERT INTO t VALUES (3$wait_no_slave)
+  SET DEBUG_SYNC= 'semisync_got_reply SIGNAL wait WAIT_FOR continue EXECUTE 2';
+  --eval INSERT INTO t VALUES (4$wait_no_slave) # ask for ACK(s)
+  # Wait for 2 *complete* ACK processings
+  SET DEBUG_SYNC= 'now WAIT_FOR wait';
+  SET DEBUG_SYNC= 'now SIGNAL continue WAIT_FOR wait';
+  SET DEBUG_SYNC= 'now SIGNAL continue';
+  FLUSH GLOBAL STATUS; # check a new transaction
   SHOW STATUS LIKE 'Rpl\_semi\_sync\_master\_%\_tx';
 
   --inc $wait_no_slave

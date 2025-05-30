@@ -375,7 +375,7 @@ public:
     @ref rpl_semi_sync_master_wait_for_slave_count number of Tranx_node::acks
 
     @pre Repl_semi_sync_binlog::LOCK_binlog should be held while calling this.
-    @see Repl_semi_sync_master::refresh_wait_for_slave_count
+    @see Repl_semi_sync_master::clear_acked_tranx_nodes
   */
   void clear_acked_tranx_nodes();
 

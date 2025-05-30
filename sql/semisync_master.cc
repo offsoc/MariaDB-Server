@@ -69,7 +69,11 @@ static ulonglong timespec_to_usec(const struct timespec *ts)
   return (ulonglong) ts->tv_sec * TIME_MILLION + ts->tv_nsec / TIME_THOUSAND;
 }
 
-/** @return Should we revert to async because there not enough slaves? */
+/** @return Should we revert to async because there's not enough slaves?
+  Specifically: `true` when there is less number of slaves than
+  @ref rpl_semi_sync_master_wait_for_slave_count and
+  @ref rpl_semi_sync_master_wait_no_slave = 0
+*/
 static bool is_no_slave()
 {
   return rpl_semi_sync_master_clients <
@@ -272,7 +276,7 @@ void Active_tranx::clear_active_tranx_nodes(Tranx_node *node)
     }
 
     DBUG_PRINT("semisync", ("%s: cleared all nodes",
-                            "Active_tranx::::clear_active_tranx_nodes"));
+                            "Active_tranx::clear_active_tranx_nodes"));
   }
   else if (new_front != m_trx_front)
   {
@@ -310,7 +314,7 @@ void Active_tranx::clear_active_tranx_nodes(Tranx_node *node)
     m_allocator.free_nodes_before(m_trx_front);
 
     DBUG_PRINT("semisync", ("%s: cleared %d nodes back until pos (%s, %lu)",
-                            "Active_tranx::::clear_active_tranx_nodes",
+                            "Active_tranx::clear_active_tranx_nodes",
                             n_frees,
                             m_trx_front->log_name, (ulong)m_trx_front->log_pos));
   }
@@ -340,11 +344,9 @@ void Active_tranx::unlink_thd_as_waiter(const char *log_file_name,
                                         my_off_t log_file_pos)
 {
   DBUG_ENTER("Active_tranx::unlink_thd_as_waiter");
-
   Tranx_node *entry= get_tranx_node(log_file_name, log_file_pos);
   if (entry)
     entry->thd= NULL;
-
   DBUG_VOID_RETURN;
 }
 
@@ -609,6 +611,7 @@ int Repl_semi_sync_master::report_reply_packet(uint32 server_id,
 
   rpl_semi_sync_master_get_ack++;
   report_reply_binlog(server_id, log_file_name, log_file_pos);
+  DEBUG_SYNC(current_thd, "semisync_got_reply");
   DBUG_RETURN(0);
 
 l_end:
@@ -678,6 +681,7 @@ int Repl_semi_sync_master::report_reply_binlog(uint32 server_id,
     m_reply_file_pos = log_file_pos;
     m_reply_file_name_inited = true;
 
+    DBUG_ASSERT(m_active_tranxs);
     entry= m_active_tranxs->get_tranx_node(log_file_name, log_file_pos);
     if (entry && ++(entry->acks) >= rpl_semi_sync_master_wait_for_slave_count)
     {
@@ -1442,7 +1446,7 @@ void Repl_semi_sync_master::await_all_slave_replies(const char *msg)
   struct timespec timeout;
   int wait_result= 0;
   bool first= true;
-  DBUG_ENTER("Repl_semi_sync_master::::await_all_slave_replies");
+  DBUG_ENTER("Repl_semi_sync_master::await_all_slave_replies");
 
   /*
     Wait for all transactions that need ACKS to have received them; or timeout.
@@ -1471,7 +1475,7 @@ void Repl_semi_sync_master::await_all_slave_replies(const char *msg)
 
 void Repl_semi_sync_master::clear_acked_tranx_nodes()
 {
-  DBUG_ENTER("refresh_wait_for_slave_count");
+  DBUG_ENTER("Repl_semi_sync_master::clear_acked_tranx_nodes");
   lock();
     if (get_master_enabled())
       m_active_tranxs->clear_acked_tranx_nodes();

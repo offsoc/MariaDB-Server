@@ -6,6 +6,7 @@ SERVER_MYPORT_3= @mysqld.3.port
 rpl_semi_sync_master_enabled= 1
 rpl_semi_sync_master_wait_for_slave_count= 2
 rpl_semi_sync_master_wait_no_slave= 1 # interactions are tested too
+rpl_semi_sync_master_wait_point= AFTER_COMMIT # for consistency in the test
 
 [mysqld.2]
 rpl_semi_sync_slave_enabled= 1
