@@ -34,7 +34,7 @@ struct Tranx_node {
   THD               *thd;                   /* The thread awaiting an ACK */
   struct Tranx_node *next;            /* the next node in the sorted list */
   struct Tranx_node *hash_next;    /* the next node during hash collision */
-  unsigned int      acks;                    ///< number of ACKs received
+  unsigned int      acks;                      /* number of ACKs received */
 };
 
 /**

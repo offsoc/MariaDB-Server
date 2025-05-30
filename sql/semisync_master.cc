@@ -20,6 +20,7 @@
 #include "semisync_master.h"
 #include <algorithm>
 #include <mysql_com.h>
+#include "debug_sync.h" // debug_sync_set_action
 
 #define TIME_THOUSAND 1000
 #define TIME_MILLION  1000000
@@ -336,6 +337,7 @@ void Active_tranx::clear_acked_tranx_nodes()
   for (Tranx_node *entry= m_trx_front; entry; entry= entry->next)
     if (entry->acks >= rpl_semi_sync_master_wait_for_slave_count)
       acked_node= entry;
+      // no `break` - keep iterating for the __last__ transaction
   if (acked_node)
     clear_active_tranx_nodes(acked_node->next);
 }
@@ -611,7 +613,13 @@ int Repl_semi_sync_master::report_reply_packet(uint32 server_id,
 
   rpl_semi_sync_master_get_ack++;
   report_reply_binlog(server_id, log_file_name, log_file_pos);
-  DEBUG_SYNC(current_thd, "semisync_got_reply");
+  DBUG_EXECUTE_IF("sync_semisync_report_reply",
+    debug_sync_set_action(current_thd, STRING_WITH_LEN(
+      /*FIXME: no DBUG_ASSERT due to
+        MDEV-32748 debug_sync_set_action() Fails if Entered in an Error State */
+      "now SIGNAL report_reply_wait WAIT_FOR report_reply_continue"
+    ));
+  );
   DBUG_RETURN(0);
 
 l_end:
