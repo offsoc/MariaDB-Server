@@ -1148,6 +1148,14 @@ public:
 
 class Item_func_coalesce :public Item_func_case_expression
 {
+protected:
+  bool all_args_maybe_null= true;
+  inline void set_nullability_with(const Item *item) override
+  {
+    if (all_args_maybe_null && !(bool) (item->base_flags & item_base_t::MAYBE_NULL))
+      all_args_maybe_null= false;
+    base_flags|= item->base_flags & item_base_t::MAYBE_NULL;
+  }
 public:
   Item_func_coalesce(THD *thd, Item *a, Item *b):
     Item_func_case_expression(thd, a, b) {}
@@ -1162,6 +1170,12 @@ public:
   bool native_op(THD *thd, Native *to) override;
   bool fix_length_and_dec(THD *thd) override
   {
+    /*
+    Result of COALESCE is nullable iff all arguments
+    are NULL, otherwise NOT NULL.
+    */
+    if (!all_args_maybe_null)
+      base_flags &= ~item_base_t::MAYBE_NULL;
     if (aggregate_for_result(func_name_cstring(), args, arg_count, true))
       return TRUE;
     fix_attributes(args, arg_count);

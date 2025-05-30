@@ -367,7 +367,7 @@ Item_func::fix_fields(THD *thd, Item **ref)
       }
       item= *arg;
 
-      base_flags|= item->base_flags & item_base_t::MAYBE_NULL;
+      set_nullability_with(item);
       with_flags|= item->with_flags;
       used_tables_and_const_cache_join(item);
       not_null_tables_cache|= item->not_null_tables();

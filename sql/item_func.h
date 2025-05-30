@@ -85,6 +85,11 @@ protected:
     return print_sql_mode_qualified_name(to, query_type, func_name_cstring());
   }
 
+  inline virtual void set_nullability_with(const Item *item)
+  {
+    base_flags|= item->base_flags & item_base_t::MAYBE_NULL;
+  }
+
 public:
 
   // Print an error message for a builtin-schema qualified function call
