@@ -82,8 +82,8 @@ struct stats_collector
 */
 struct Stats
 {
-  // XXX diameter here
-  // XXX remove ef_power, use proper stats_collector
+  double ef_power= 0.6;         // for the bloom filter size heuristic
+  float diameter= 0;
   size_t graph_size= 0;
   stats_collector subdist;
 };
@@ -503,8 +503,6 @@ public:
   mysql_rwlock_t commit_lock;
   size_t vec_len= 0;
   size_t byte_len= 0;
-  Atomic_relaxed<double> ef_power{0.6}; // for the bloom filter size heuristic
-  Atomic_relaxed<float>  diameter{0};   // for the generosity heuristic
   FVectorNode *start= 0;
   const uint tref_len;
   const uint gref_len;
@@ -662,6 +660,8 @@ public:
   {
     mysql_mutex_lock(&cache_lock);
     stats.graph_size+= addend.graph_size;
+    stats.diameter= std::max(stats.diameter, addend.diameter);
+    stats.ef_power= std::max(stats.ef_power, addend.ef_power);
     stats.subdist.add(addend.subdist);
     mysql_mutex_unlock(&cache_lock);
   }
@@ -1064,6 +1064,8 @@ struct MHNSW_param
     Stats stats;
     ctx->read_stats(&stats);
     max_est_size= stats.graph_size/1.3;
+    acc.diameter= stats.diameter;
+    acc.ef_power= stats.ef_power;
     if (ctx->use_subdist)
     {
       if (stats.subdist.n > subdist_stddev_valid)
@@ -1299,7 +1301,7 @@ static int search_layer(MHNSW_param *p, const FVector *target, float threshold,
 
   // WARNING! heuristic here
   const double est_heuristic= 8 * std::sqrt(p->ctx->max_neighbors(p->layer));
-  double est_size= est_heuristic * std::pow(ef, p->ctx->ef_power);
+  double est_size= est_heuristic * std::pow(ef, p->acc.ef_power);
   set_if_smaller(est_size, p->max_est_size);
   VisitedSet visited(root, static_cast<uint>(est_size));
 
@@ -1307,12 +1309,11 @@ static int search_layer(MHNSW_param *p, const FVector *target, float threshold,
   best.init(ef, true, Visited::cmp);
 
   DBUG_ASSERT(inout->num <= result_size);
-  float max_distance= p->ctx->diameter;
   for (size_t i=0; i < inout->num; i++)
   {
     auto node= inout->links[i];
     Visited *v= visited.create(node, node->distance_to(target));
-    max_distance= std::max(max_distance, v->distance_to_target);
+    p->acc.diameter= std::max(p->acc.diameter, v->distance_to_target);
     candidates.push(v);
     if ((skip_deleted && v->node->deleted) || threshold > NEAREST)
       continue;
@@ -1320,7 +1321,7 @@ static int search_layer(MHNSW_param *p, const FVector *target, float threshold,
   }
 
   float furthest_best= best.is_empty() ? FLT_MAX
-                       : generous_furthest(best, max_distance, generosity);
+                       : generous_furthest(best, p->acc.diameter, generosity);
   while (candidates.elements())
   {
     const Visited &cur= *candidates.pop();
@@ -1348,12 +1349,12 @@ static int search_layer(MHNSW_param *p, const FVector *target, float threshold,
           Visited *v= visited.create(links[i], links[i]->distance_to(target));
           if (v->distance_to_target <= threshold)
             continue;
-          max_distance= std::max(max_distance, v->distance_to_target);
+          p->acc.diameter= std::max(p->acc.diameter, v->distance_to_target);
           candidates.safe_push(v);
           if (skip_deleted && v->node->deleted)
             continue;
           best.push(v);
-          furthest_best= generous_furthest(best, max_distance, generosity);
+          furthest_best= generous_furthest(best, p->acc.diameter, generosity);
         }
         else
         {
@@ -1370,18 +1371,17 @@ static int search_layer(MHNSW_param *p, const FVector *target, float threshold,
             if (v->distance_to_target < best.top()->distance_to_target)
             {
               best.replace_top(v);
-              furthest_best= generous_furthest(best, max_distance, generosity);
+              furthest_best= generous_furthest(best, p->acc.diameter, generosity);
             }
           }
         }
       }
     }
   }
-  set_if_bigger(p->ctx->diameter, max_distance); // not atomic, but it's ok
   if (ef > 1 && visited.count > est_size)
   {
     double ef_power= std::log(visited.count/est_heuristic) / std::log(ef);
-    set_if_bigger(p->ctx->ef_power, ef_power); // not atomic, but it's ok
+    set_if_bigger(p->acc.ef_power, ef_power);
   }
 
   while (best.elements() > result_size)
