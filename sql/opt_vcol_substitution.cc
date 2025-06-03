@@ -214,6 +214,14 @@ void subst_vcols_in_order(Vcol_subst_context *ctx,
   {
     Item *item= *order->item;
     uint old_count= ctx->subst_count;
+    /*
+      Extra safety: do not rewrite if there is no room in
+      ref_pointer_array's slices (see st_select_lex::setup_ref_array)
+    */
+    if (join->all_fields.elements * 5 >=
+        join->select_lex->ref_pointer_array.size() - 1)
+      break;
+
     if ((vcol_field= is_vcol_expr(ctx, item)))
       subst_vcol_if_compatible(ctx, NULL, order->item, vcol_field);
     if (ctx->subst_count > old_count)
