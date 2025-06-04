@@ -3921,8 +3921,10 @@ dberr_t dict_stats_rename_table(const char *old_name, const char *new_name,
   dict_fs2utf8(old_name, old_db, sizeof old_db, old_table, sizeof old_table);
   dict_fs2utf8(new_name, new_db, sizeof new_db, new_table, sizeof new_table);
 
-  if (dict_table_t::is_temporary_name(old_name) ||
-      dict_table_t::is_temporary_name(new_name))
+  bool is_old_temp= dict_table_t::is_temporary_name(old_name);
+  bool is_new_temp= dict_table_t::is_temporary_name(new_name);
+  bool old_to_new= is_old_temp && !is_new_temp;
+  if (!old_to_new && (is_old_temp || is_new_temp))
   {
     if (dberr_t e= dict_stats_delete_from_table_stats(old_db, old_table, trx))
       return e;

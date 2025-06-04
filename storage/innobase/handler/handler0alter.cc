@@ -11206,43 +11206,6 @@ alter_stats_norebuild(
 	DBUG_VOID_RETURN;
 }
 
-/** Adjust the persistent statistics after rebuilding ALTER TABLE.
-Remove statistics for dropped indexes, add statistics for created indexes
-and rename statistics for renamed indexes.
-@param table InnoDB table that was rebuilt by ALTER TABLE
-@param table_name Table name in MySQL
-@param thd MySQL connection
-*/
-static
-void
-alter_stats_rebuild(
-/*================*/
-	dict_table_t*	table,
-	const char*	table_name,
-	THD*		thd)
-{
-	DBUG_ENTER("alter_stats_rebuild");
-
-	if (!table->space
-	    || !dict_stats_is_persistent_enabled(table)) {
-		DBUG_VOID_RETURN;
-	}
-
-	dberr_t	ret = dict_stats_update(table, DICT_STATS_RECALC_PERSISTENT);
-
-	if (ret != DB_SUCCESS) {
-		push_warning_printf(
-			thd,
-			Sql_condition::WARN_LEVEL_WARN,
-			ER_ALTER_INFO,
-			"Error updating stats for table '%s'"
-			" after table rebuild: %s",
-			table_name, ut_strerr(ret));
-	}
-
-	DBUG_VOID_RETURN;
-}
-
 /** Apply the log for the table rebuild operation.
 @param[in]	ctx		Inplace Alter table context
 @param[in]	altered_table	MySQL table that is being altered
